@@ -44,6 +44,14 @@ B. Android 빌드 로그를 “확실히” 뽑기
 값을 바꾼 뒤에는 문서에 적힌 대로 npx expo start -c 로 캐시를 지우고 다시 띄워야 EXPO_PUBLIC_* 가 반영됩니다.
 
 
+# 앱 실행할 때
+nvm 적용된 터미널에서:
+cd /Users/zzing/Desktop/ourpick/mz-frontend-app/mobile
+npm install
+npm run start
+Android 에뮬레이터는 Android Studio + SDK가 추가로 필요합니다 (nvm과는 별개).
+source ~/.zshrc 후 nvm --version 결과를 알려주시면, 다음 단계(에뮬레이터 또는 npm run android)도 이어서 안내하겠습니다.
+
 # 안드로이드 에뮬레이터 실행
 cd mobile
 npx expo run:android
@@ -137,3 +145,10 @@ const API_BASE_URL =
   - 탭: `mobile/app/(tabs)/*`
   - 상세: `mobile/app/agenda/[id].tsx`, `mobile/app/calendar/[id].tsx`
 
+
+
+20260522
+# 시뮬레이터 설치 후 오픈 
+open -a Simulator
+cd /Users/zzing/Desktop/ourpick/mz-frontend-app/mobile
+npm run ios

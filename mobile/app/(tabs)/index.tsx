@@ -32,6 +32,20 @@ export default function HomeScreen() {
             후보를 스와이프해서 비교하고, 투표로 결정해요
           </Text>
           <View style={styles.heroRow} lightColor="transparent" darkColor="transparent">
+            <Link href="/create" asChild>
+              <Pressable
+                style={StyleSheet.flatten([
+                  styles.heroChip,
+                  {
+                    backgroundColor: t.colors.text,
+                    borderRadius: t.radius.pill,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                  },
+                ])}>
+                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>안건 만들기</Text>
+              </Pressable>
+            </Link>
             <Link href="/list" asChild>
               <Pressable
                 style={StyleSheet.flatten([
@@ -115,7 +129,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 24 },
   heroTitle: { fontSize: 20, fontWeight: '600' },
   heroSub: { marginTop: 8, fontSize: 14 },
-  heroRow: { marginTop: 12, flexDirection: 'row' },
+  heroRow: { marginTop: 12, flexDirection: 'row', gap: 8 },
   heroChip: { alignSelf: 'flex-start' },
   sectionTitle: { fontSize: 16, fontWeight: '600' },
   catRow: { flexDirection: 'row', gap: 10 },

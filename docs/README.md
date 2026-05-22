@@ -41,6 +41,8 @@ cd mobile
 npx expo start -c
 B. Android 빌드 로그를 “확실히” 뽑기
 아래로 실행하면 실패 원인이 콘솔에 더 명확히 찍힙니다.
+값을 바꾼 뒤에는 문서에 적힌 대로 npx expo start -c 로 캐시를 지우고 다시 띄워야 EXPO_PUBLIC_* 가 반영됩니다.
+
 
 # 안드로이드 에뮬레이터 실행
 cd mobile

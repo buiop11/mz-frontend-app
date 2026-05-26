@@ -45,6 +45,8 @@ export type StoredUser = {
   id: string;
   name: string;
   email: string;
+  memberSeq?: number;
+  googleId?: string;
 };
 
 export async function saveSession(token: string, user: StoredUser) {
@@ -61,6 +63,16 @@ export async function loadSession(): Promise<{ token: string; user: StoredUser }
   } catch {
     return null;
   }
+}
+
+export async function loadMemberSeq(): Promise<number | null> {
+  const session = await loadSession();
+  return session?.user.memberSeq ?? null;
+}
+
+export async function loadGoogleId(): Promise<string | null> {
+  const session = await loadSession();
+  return session?.user.googleId ?? null;
 }
 
 export async function clearSession() {

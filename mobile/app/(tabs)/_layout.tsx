@@ -52,7 +52,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: '달력',
+          title: '캘린더',
           tabBarIcon: createTabIcon('calendar'),
         }}
       />

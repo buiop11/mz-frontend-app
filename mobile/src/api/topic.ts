@@ -1,42 +1,124 @@
 import { resolveBackendApiRoot } from './category';
+import { apiFetch } from './fetch';
 
 export type TopicTagVariant = 'mint' | 'neutral';
 
 export type TopicSummary = {
   topicSeq: string;
+  memberSeq?: string;
+  categorySeq?: string;
+  candidateSeq?: string;
+  categoryName?: string;
   title: string;
   sub: string;
   tag: string;
   tagVariant: TopicTagVariant;
   emoji: string;
+  status: string;
+  googleEventId?: string;
   href: string;
 };
 
 export type TopicParseResult = {
   list: TopicSummary[];
   fromApi: boolean;
+  totalCount?: number;
+  pageNum?: number;
+  pageSize?: number;
+  pages?: number;
+  hasNextPage?: boolean;
+};
+
+export type TopicListRequest = {
+  memberSeq: number;
+  currentPage?: number;
+  categorySeq?: number;
 };
 
 export const FALLBACK_TOPICS: TopicSummary[] = [
   {
     topicSeq: 'studio',
+    memberSeq: '-1',
+    categorySeq: '-1',
+    candidateSeq: '-1',
+    categoryName: '예시',
     title: '스튜디오 예약',
     sub: '후보 4 · 댓글 12 · 마감 D-2',
     tag: '투표 중',
     tagVariant: 'mint',
     emoji: '🍼',
+    status: 'VOTING',
     href: '/vote/studio',
   },
   {
     topicSeq: 'invite',
+    memberSeq: '-1',
+    categorySeq: '-1',
+    candidateSeq: '-1',
+    categoryName: '예시',
     title: '식당 최종 선택',
     sub: '결정자: 아진 · 2024.05.02',
     tag: 'Pick!',
     tagVariant: 'neutral',
     emoji: '💌',
+    status: 'PICK',
     href: '/vote/invite',
   },
 ];
+
+function optionalString(value: unknown): string | undefined {
+  if (value == null || value === '') return undefined;
+  switch (typeof value) {
+    case 'string':
+      return value;
+    case 'number':
+    case 'boolean':
+      return String(value);
+    default:
+      return undefined;
+  }
+}
+
+function isPickStatus(status: string) {
+  return ['PICK', 'DONE', 'CONFIRMED', 'COMPLETED'].includes(status);
+}
+
+function defaultTagForStatus(status: string): string {
+  if (isPickStatus(status)) return 'Pick!';
+  if (['VOTING', 'IN_PROGRESS', 'OPEN'].includes(status)) return '투표 중';
+  return '진행';
+}
+
+function resolveTagVariant(tag: string, status: string, rawVariant: unknown): TopicTagVariant {
+  const tvRaw = (optionalString(rawVariant) ?? '').toLowerCase();
+  if (tvRaw === 'neutral') return 'neutral';
+  if (tvRaw === 'mint') return 'mint';
+  return /pick/i.test(tag) || isPickStatus(status) ? 'neutral' : 'mint';
+}
+
+function resolveEmoji(item: any): string {
+  const rawEmoji = item.emoji ?? item.emojiIcon ?? item.iconEmoji ?? item.topicEmoji ?? null;
+  const emoji = optionalString(rawEmoji)?.trim();
+  return emoji || '🗳️';
+}
+
+function resolveTopicHref(item: any, topicSeq: unknown): string {
+  const existingHref = typeof item.href === 'string' ? item.href.trim() : '';
+  if (existingHref) return existingHref;
+
+  const topicSeqText = optionalString(topicSeq);
+  if (topicSeqText && topicSeqText.length > 0) {
+    return `/agenda/${encodeURIComponent(topicSeqText)}`;
+  }
+  if (typeof item.slug === 'string' && item.slug.trim()) {
+    return `/agenda/${encodeURIComponent(item.slug.trim())}`;
+  }
+  return '/create';
+}
+
+function normalizeTopicSeq(topicSeq: unknown, href: string): string {
+  return optionalString(topicSeq) ?? href;
+}
 
 export function normalizeTopicRow(item: any): TopicSummary {
   const topicSeq =
@@ -45,6 +127,7 @@ export function normalizeTopicRow(item: any): TopicSummary {
   const title = String(
     item.title ?? item.topicTitle ?? item.name ?? item.agendaTitle ?? '',
   ).trim();
+  const categoryName = String(item.categoryName ?? item.category ?? '').trim();
 
   const sub = String(
     item.sub ??
@@ -52,78 +135,32 @@ export function normalizeTopicRow(item: any): TopicSummary {
       item.description ??
       item.summary ??
       item.subText ??
+      categoryName ??
       '',
   ).trim();
 
-  let tag = String(
+  const rawTag = String(
     item.tag ?? item.statusLabel ?? item.statusName ?? item.badge ?? '',
   ).trim();
-
   const status = String(item.status ?? '').toUpperCase();
-  if (!tag) {
-    if (
-      status === 'PICK' ||
-      status === 'DONE' ||
-      status === 'CONFIRMED' ||
-      status === 'COMPLETED'
-    ) {
-      tag = 'Pick!';
-    } else if (
-      status === 'VOTING' ||
-      status === 'IN_PROGRESS' ||
-      status === 'OPEN'
-    ) {
-      tag = '투표 중';
-    } else {
-      tag = '진행';
-    }
-  }
-
-  const tvRaw = String(item.tagVariant ?? '').toLowerCase();
-  let tagVariant: TopicTagVariant | null =
-    tvRaw === 'neutral' || tvRaw === 'mint' ? (tvRaw as TopicTagVariant) : null;
-  if (!tagVariant) {
-    if (
-      /pick/i.test(tag) ||
-      status === 'PICK' ||
-      status === 'DONE' ||
-      status === 'CONFIRMED' ||
-      status === 'COMPLETED'
-    ) {
-      tagVariant = 'neutral';
-    } else {
-      tagVariant = 'mint';
-    }
-  }
-
-  const rawEmoji =
-    item.emoji ?? item.emojiIcon ?? item.iconEmoji ?? item.topicEmoji ?? null;
-  let emoji = '';
-  if (typeof rawEmoji === 'string') {
-    emoji = rawEmoji.trim();
-  } else if (rawEmoji != null) {
-    const s = String(rawEmoji).trim();
-    if (s) emoji = s;
-  }
-
-  let href = typeof item.href === 'string' ? item.href.trim() : '';
-  if (!href) {
-    if (topicSeq != null && String(topicSeq).length > 0) {
-      href = `/vote/${encodeURIComponent(String(topicSeq))}`;
-    } else if (typeof item.slug === 'string' && item.slug.trim()) {
-      href = `/vote/${encodeURIComponent(item.slug.trim())}`;
-    } else {
-      href = '/vote/new';
-    }
-  }
+  const tag = rawTag || defaultTagForStatus(status);
+  const tagVariant = resolveTagVariant(tag, status, item.tagVariant);
+  const emoji = resolveEmoji(item);
+  const href = resolveTopicHref(item, topicSeq);
 
   return {
-    topicSeq: topicSeq != null ? String(topicSeq) : href,
+    topicSeq: normalizeTopicSeq(topicSeq, href),
+    memberSeq: optionalString(item.memberSeq),
+    categorySeq: optionalString(item.categorySeq),
+    candidateSeq: optionalString(item.candidateSeq),
+    categoryName: categoryName || undefined,
     title,
-    sub,
+    sub: sub || categoryName,
     tag,
     tagVariant,
     emoji,
+    status,
+    googleEventId: optionalString(item.googleEventId),
     href,
   };
 }
@@ -159,20 +196,84 @@ export function pickTopicSummaryForSeq(
 }
 
 export function parseTopicApiResponse(json: any): TopicParseResult {
+  // 응답 자체가 비정상(코드 다름/데이터 없음)일 때만 폴백 더미를 돌려준다.
   if (json?.code !== 'SUC001' || json?.data == null) {
     return { list: FALLBACK_TOPICS, fromApi: false };
   }
 
-  const raw =
-    json.data.list ?? json.data.topics ?? json.data.items ?? json.data.rows;
+  const data = json.data;
+  const raw = data.list ?? data.topics ?? data.items ?? data.rows;
   const arr = Array.isArray(raw) ? raw : [];
   const list = arr.map((row) => normalizeTopicRow(row)).filter((r) => r.title);
 
-  if (list.length === 0) {
-    return { list: FALLBACK_TOPICS, fromApi: false };
+  // SUC001 + 빈 리스트는 "정상 응답이지만 안건이 0건"이므로 그대로 반환한다.
+  // (예전엔 빈 리스트일 때 더미를 끼워 넣고 fromApi=false 로 처리해서, 화면에 에러도 빈 상태도 모두 표시되지 않는 버그가 있었다.)
+  return {
+    list,
+    fromApi: true,
+    totalCount: Number(data.totalCount ?? list.length),
+    pageNum: Number(data.pageNum ?? 1),
+    pageSize: Number(data.pageSize ?? (list.length || 10)),
+    pages: Number(data.pages ?? (list.length > 0 ? 1 : 0)),
+    hasNextPage: Boolean(data.hasNextPage),
+  };
+}
+
+export async function getMemberTopics(params: TopicListRequest): Promise<TopicParseResult> {
+  const q = new URLSearchParams({
+    memberSeq: String(params.memberSeq),
+    currentPage: String(params.currentPage ?? 1),
+  });
+  if (params.categorySeq != null) q.set('categorySeq', String(params.categorySeq));
+  const path = `/api/topic?${q.toString()}`;
+
+  console.info('[topic] GET', path);
+
+  // 1단계: 네트워크 호출. 실패 시 apiFetch 가 이미 로그를 남기고 throw 하므로 여기서는 재포장만 한다.
+  let res: Response;
+  try {
+    res = await apiFetch(path, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+  } catch (e: any) {
+    throw new Error(`/api/topic 네트워크 오류: ${e?.message ?? String(e)}`);
   }
 
-  return { list, fromApi: true };
+  // 2단계: 바디를 텍스트로 먼저 읽고 JSON 파싱을 시도한다.
+  //   - JSON이 아닐 때(HTML 에러 페이지/빈 응답 등)도 콘솔에서 원본을 확인할 수 있도록 raw text 를 보존한다.
+  const rawText = await res.text().catch(() => '');
+  let json: any = null;
+  if (rawText) {
+    try {
+      json = JSON.parse(rawText);
+    } catch (e) {
+      console.error('[topic] 응답이 JSON 아님', { status: res.status, rawText, parseError: e });
+      throw new Error(`/api/topic 응답이 JSON이 아닙니다 (status=${res.status}). 본문 일부: ${rawText.slice(0, 200)}`);
+    }
+  }
+
+  // 3단계: HTTP 상태 코드 체크.
+  if (!res.ok) {
+    console.error('[topic] HTTP 에러', { status: res.status, body: json ?? rawText });
+    throw new Error(json?.message ?? `안건 목록 조회 실패 (status=${res.status})`);
+  }
+
+  // 4단계: 표준 응답 코드 체크.
+  if (json?.code !== 'SUC001') {
+    console.error('[topic] API 응답 코드 비정상', json);
+    throw new Error(json?.message ?? `안건 목록 조회 실패 (code=${json?.code ?? 'unknown'})`);
+  }
+
+  const parsed = parseTopicApiResponse(json);
+  console.info('[topic] parsed result', {
+    count: parsed.list.length,
+    totalCount: parsed.totalCount,
+    fromApi: parsed.fromApi,
+    pageNum: parsed.pageNum,
+    pages: parsed.pages,
+  });
+  return parsed;
 }
 
 export async function getTopics(
@@ -184,7 +285,8 @@ export async function getTopics(
     if (v != null && v !== '') q.set(k, String(v));
   }
   const qs = q.toString();
-  const url = `${resolveBackendApiRoot()}/api/topic${qs ? `?${qs}` : ''}`;
+  const query = qs ? `?${qs}` : '';
+  const url = `${resolveBackendApiRoot()}/api/topic${query}`;
   try {
     const res = await fetch(url, { headers: { Accept: '*/*' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

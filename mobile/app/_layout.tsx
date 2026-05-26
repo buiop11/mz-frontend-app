@@ -7,6 +7,8 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { AuthGate } from '@/src/auth/AuthGate';
+import { AuthProvider } from '@/src/auth/AuthProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -50,12 +52,18 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="create" options={{ headerShown: false }} />
-        <Stack.Screen name="category/new" options={{ headerShown: false }} />
-      </Stack>
+      <AuthProvider>
+        <AuthGate>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: '알림' }} />
+            <Stack.Screen name="create" options={{ headerShown: false, title: '안건 생성' }} />
+            <Stack.Screen name="category/new" options={{ headerShown: false, title: '카테고리 생성' }} />
+            <Stack.Screen name="agenda/[id]" options={{ headerShown: false, title: '안건 상세' }} />
+            <Stack.Screen name="calendar/[id]" options={{ headerShown: false, title: '일정 상세' }} />
+          </Stack>
+        </AuthGate>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

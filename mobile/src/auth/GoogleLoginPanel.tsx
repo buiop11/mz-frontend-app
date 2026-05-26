@@ -1,16 +1,17 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
 
-import { Text } from '@/components/Themed';
+import { Text, View } from '@/components/Themed';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 import { GoogleAuthResult, useGoogleAuth } from '@/src/auth/useGoogleAuth';
 
-type Props = {
+type Props = Readonly<{
   onAuthResult: (result: GoogleAuthResult) => void | Promise<void>;
-};
+  statusText?: string | null;
+}>;
 
-export function GoogleLoginPanel({ onAuthResult }: Props) {
+export function GoogleLoginPanel({ onAuthResult, statusText }: Props) {
   const t = useTokens();
   const [loading, setLoading] = useState(false);
 
@@ -26,39 +27,57 @@ export function GoogleLoginPanel({ onAuthResult }: Props) {
   );
 
   const { isReady, signIn } = useGoogleAuth(onGoogleResult);
+  const buttonDisabled = !isReady || loading;
+  const buttonOpacity = buttonDisabled ? 0.5 : 1;
 
   const onPressGoogleLogin = async () => {
     if (!isReady) return;
     setLoading(true);
-    await signIn();
+    try {
+      await signIn();
+    } catch (e: any) {
+      setLoading(false);
+      Alert.alert('로그인 실패', e?.message ?? '구글 로그인 창을 열지 못했습니다.');
+    }
   };
 
   return (
-    <Card border background="surface" radius={t.radius.lg} padding={20}>
-      <Text style={{ fontSize: 16, fontWeight: '600', color: t.colors.text }}>
+    <Card border background="surface" radius={24} padding={22}>
+      <View style={styles.badge} lightColor="transparent" darkColor="transparent">
+        <Text style={{ fontSize: 11, fontWeight: '700', color: t.colors.tint }}>GOOGLE LOGIN</Text>
+      </View>
+      <Text style={{ marginTop: 12, fontSize: 19, fontWeight: '800', color: t.colors.text }}>
         로그인이 필요해요
       </Text>
-      <Text style={{ marginTop: 6, fontSize: 12, color: t.colors.subtext }}>
-        구글 계정으로 로그인하고 우리의 결정을 함께 만들어요.
+      <Text style={{ marginTop: 8, fontSize: 13, lineHeight: 19, color: t.colors.subtext }}>
+        구글 계정으로 안전하게 로그인하고, 우리의 결정 기록을 이어서 사용할 수 있어요.
       </Text>
+      {loading || statusText ? (
+        <Text style={{ marginTop: 10, fontSize: 11, lineHeight: 16, color: t.colors.subtext }}>
+          {statusText ?? '구글 로그인 응답을 기다리는 중입니다.'}
+        </Text>
+      ) : null}
 
       <Pressable
-        disabled={!isReady || loading}
+        disabled={buttonDisabled}
         onPress={onPressGoogleLogin}
         style={({ pressed }) => [
           styles.googleBtn,
           {
             borderColor: t.colors.border,
-            backgroundColor: t.colors.surface,
-            opacity: !isReady || loading ? 0.5 : pressed ? 0.85 : 1,
+            backgroundColor: '#FFFFFF',
+            opacity: pressed && !buttonDisabled ? 0.85 : buttonOpacity,
           },
         ]}>
         {loading ? (
           <ActivityIndicator />
         ) : (
-          <Text style={{ fontSize: 14, fontWeight: '600', color: t.colors.text }}>
-            G  구글로 계속하기
-          </Text>
+          <View style={styles.googleContent} lightColor="transparent" darkColor="transparent">
+            <View style={styles.googleMark} lightColor="transparent" darkColor="transparent">
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#4285F4' }}>G</Text>
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#222222' }}>구글로 계속하기</Text>
+          </View>
         )}
       </Pressable>
     </Card>
@@ -101,13 +120,34 @@ export function GoogleLoginEnvMissingCard() {
 }
 
 const styles = StyleSheet.create({
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(41, 171, 162, 0.1)',
+  },
   googleBtn: {
-    marginTop: 16,
-    height: 48,
-    borderRadius: 12,
+    marginTop: 18,
+    height: 54,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  googleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleMark: {
+    width: 28,
+    height: 28,
+    marginRight: 10,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4F7FB',
   },
   hintBtn: {
     marginTop: 14,

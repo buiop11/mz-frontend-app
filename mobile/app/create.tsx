@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
@@ -144,14 +144,16 @@ export default function CreateScreen() {
         inviteMode,
         inviteContact: inviteMode === 'invite' ? inviteContact.trim() : '',
       };
+      const qs = new URLSearchParams();
+      for (const [key, value] of Object.entries(payload)) {
+        if (value != null && value !== '') qs.set(key, String(value));
+      }
 
-      const res = await apiFetch('/api/topic', {
-        method: 'POST',
+      const res = await apiFetch(`/api/topic?${qs.toString()}`, {
+        method: 'GET',
         headers: {
           Accept: 'application/json',
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => ({} as any));
       const seq = extractTopicSeqFromCreateResponse(json);
@@ -223,20 +225,20 @@ export default function CreateScreen() {
           <View style={styles.field} lightColor="transparent" darkColor="transparent">
             <View style={styles.fieldHeader} lightColor="transparent" darkColor="transparent">
               <Text style={[styles.label, { color: t.colors.text }]}>카테고리</Text>
-              <Link href="/category/new" asChild>
-                <Pressable
-                  style={[
-                    styles.addChip,
-                    {
-                      borderColor: t.colors.border,
-                      backgroundColor: t.colors.surface,
-                      borderRadius: t.radius.pill,
-                    },
-                  ]}>
-                  <Feather name="folder-plus" size={14} color={t.colors.text} />
-                  <Text style={{ color: t.colors.text, fontSize: 12, fontWeight: '600' }}>추가</Text>
-                </Pressable>
-              </Link>
+              <Pressable
+                onPress={() => router.push('/category/new')}
+                style={({ pressed }) => [
+                  styles.addChip,
+                  {
+                    borderColor: t.colors.border,
+                    backgroundColor: t.colors.surface,
+                    borderRadius: t.radius.pill,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}>
+                <Feather name="folder-plus" size={14} color={t.colors.text} />
+                <Text style={{ color: t.colors.text, fontSize: 12, fontWeight: '600' }}>추가</Text>
+              </Pressable>
             </View>
             <ScrollView
               horizontal

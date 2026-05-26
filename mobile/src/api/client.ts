@@ -14,22 +14,125 @@ export type GoogleLoginResponse = {
     id: string;
     name: string;
     email: string;
+    memberSeq?: number;
+    googleId?: string;
+  };
+  accessTokenExpiredDt?: string;
+  passwordExpiredYn?: boolean;
+};
+
+type GoogleLoginApiResponse = {
+  code?: string;
+  message?: string;
+  data?: {
+    email?: string | null;
+    memberSeq?: number;
+    accessToken?: string;
+    accessTokenExpiredDt?: string;
+    passwordExpiredYn?: boolean;
   };
 };
+
+function displayNameFromEmail(email: string): string {
+  const [localPart] = email.split('@');
+  return localPart || '구글 사용자';
+}
+
+type GoogleIdTokenPayload = {
+  sub?: string;
+  email?: string;
+  name?: string;
+};
+
+function decodeBase64Url(value: string): string | null {
+  if (globalThis.atob === undefined) return null;
+
+  const base64 = value.replaceAll('-', '+').replaceAll('_', '/');
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+  try {
+    return decodeURIComponent(
+      Array.from(globalThis.atob(padded))
+        .map((char) => `%${(char.codePointAt(0) ?? 0).toString(16).padStart(2, '0')}`)
+        .join(''),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function decodeGoogleIdToken(idToken: string): GoogleIdTokenPayload | null {
+  const [, payload] = idToken.split('.');
+  if (!payload) return null;
+
+  const decoded = decodeBase64Url(payload);
+  if (!decoded) return null;
+
+  try {
+    return JSON.parse(decoded) as GoogleIdTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 // 구글에서 받은 idToken을 백엔드로 보내 우리 서비스 토큰을 발급받습니다.
 // 백엔드 엔드포인트: POST /api/login/google  body: { idToken }
 export async function loginWithGoogle(idToken: string): Promise<GoogleLoginResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/login/google`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken }),
-  });
+  const url = `${API_BASE_URL}/api/login/google`;
+  console.info('[auth] POST', url);
+
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      },
+      10000,
+    );
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      throw new Error(`백엔드 로그인 API 응답이 지연되고 있습니다. (${url})`);
+    }
+    throw new Error(`백엔드 로그인 API 호출 실패: ${e?.message ?? String(e)}`);
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`백엔드 로그인 실패 (${res.status}): ${text}`);
   }
 
-  return (await res.json()) as GoogleLoginResponse;
+  const json = (await res.json()) as GoogleLoginApiResponse;
+  const data = json.data;
+  const googleIdentity = decodeGoogleIdToken(idToken);
+  const email = data?.email?.trim() || googleIdentity?.email?.trim();
+
+  if (!data?.accessToken || data.memberSeq == null) {
+    throw new Error(json.message ?? '로그인 응답에 필요한 사용자 정보가 없습니다.');
+  }
+
+  return {
+    token: data.accessToken,
+    accessTokenExpiredDt: data.accessTokenExpiredDt,
+    passwordExpiredYn: data.passwordExpiredYn,
+    user: {
+      id: String(data.memberSeq),
+      memberSeq: data.memberSeq,
+      googleId: googleIdentity?.sub,
+      name: googleIdentity?.name ?? (email ? displayNameFromEmail(email) : `회원 ${data.memberSeq}`),
+      email: email ?? '',
+    },
+  };
 }

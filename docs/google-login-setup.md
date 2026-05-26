@@ -53,9 +53,21 @@ Expo SDK 54의 표준 방식인 **`expo-auth-session`** 을 사용합니다.
        ./gradlew signingReport
        ```
        출력에서 `SHA1:` 라인을 복사
+
+1. Android 폴더로 이동
+프로젝트 루트가 c:\matjzing\mz-frontend-app 이니까 PowerShell에서:
+
+cd c:\matjzing\mz-frontend-app\mobile\android
+그리고 SHA-1 확인:
+
+.\gradlew signingReport
+문서의 ./gradlew signingReport는 Mac/Linux 방식이고, Windows PowerShell에서는 .\gradlew signingReport 입니다.
+
    - **iOS**: 번들 ID `com.anonymous.mobile` (지금 당장 안 써도 OK)
-   - **Web application**: Expo Go 테스트용
-     - Authorized redirect URI: `https://auth.expo.io/@<your-expo-username>/mobile`
+   - **Web application**: Expo 웹 테스트용
+     - 승인된 JavaScript 원본: `http://localhost:8081`
+     - 승인된 리디렉션 URI: `http://localhost:8081`
+     - Expo 웹 포트가 바뀌면 `8081` 부분도 실제 포트에 맞춰 추가해야 합니다.
 
 ### 3.2. 환경변수 파일 생성
 
@@ -111,16 +123,19 @@ Content-Type: application/json
 ### 응답 (200 OK)
 ```json
 {
-  "token": "백엔드가-발급한-JWT-또는-세션-토큰",
-  "user": {
-    "id": "user_123",
-    "name": "윤아",
-    "email": "yuna@example.com"
+  "code": "SUC001",
+  "message": "처리가 완료되었습니다.",
+  "data": {
+    "email": "emotion@emotion.co.kr",
+    "passwordExpiredYn": false,
+    "memberSeq": 1,
+    "accessToken": "abc...",
+    "accessTokenExpiredDt": "2022.09.06 09:00.000"
   }
 }
 ```
 
-백엔드 응답 형태가 다르다면 → **`mobile/src/api/client.ts`의 `GoogleLoginResponse` 타입과 `loginWithGoogle` 함수**만 맞춰주면 됩니다.
+프론트는 `data.accessToken`을 로그인 토큰으로 저장하고, `data.memberSeq`와 `data.email`을 마이페이지 사용자 정보로 사용합니다.
 
 ---
 

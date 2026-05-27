@@ -55,6 +55,119 @@ function normalizeCandidate(row: any): Candidate | null {
   };
 }
 
+export function parseCandidateDetailResponse(json: unknown): Candidate | null {
+  const root = json as { code?: string; data?: unknown };
+  if (root?.code !== 'SUC001' || root.data == null) return null;
+  return normalizeCandidate(root.data);
+}
+
+export async function getCandidateDetail(
+  candidateSeq: number,
+  memberSeq?: number,
+): Promise<Candidate> {
+  const q = memberSeq != null ? `?memberSeq=${encodeURIComponent(String(memberSeq))}` : '';
+  const path = `/api/candidate/${candidateSeq}${q}`;
+
+  const res = await apiFetch(path, { method: 'GET', headers: { Accept: 'application/json' } });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `후보 조회 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? '후보 조회에 실패했습니다.');
+  }
+
+  const row = parseCandidateDetailResponse(json);
+  if (!row) throw new Error('후보 정보를 읽을 수 없습니다.');
+  return row;
+}
+
+export type SaveCandidateRequest = {
+  memberSeq: number;
+  topicSeq: number;
+  name: string;
+  info?: string | null;
+  price?: number | null;
+  imageUrl?: string | null;
+  linkUrl?: string | null;
+};
+
+function buildSaveBody(data: SaveCandidateRequest) {
+  return {
+    memberSeq: data.memberSeq,
+    topicSeq: data.topicSeq,
+    name: data.name.trim(),
+    info: data.info?.trim() ? data.info.trim() : null,
+    price: data.price != null && Number.isFinite(data.price) ? data.price : null,
+    imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
+    linkUrl: data.linkUrl?.trim() ? data.linkUrl.trim() : null,
+  };
+}
+
+export async function createCandidate(data: SaveCandidateRequest): Promise<Candidate> {
+  const res = await apiFetch('/api/candidate', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildSaveBody(data)),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `후보 등록 실패 (${res.status})`);
+  }
+  if (json?.code && json.code !== 'SUC001') {
+    throw new Error(json?.message ?? '후보 등록에 실패했습니다.');
+  }
+
+  const row = parseCandidateDetailResponse(json);
+  if (row) return row;
+  return {
+    candidateSeq: Number(json?.data?.candidateSeq ?? Date.now()),
+    topicSeq: data.topicSeq,
+    memberSeq: data.memberSeq,
+    name: data.name.trim(),
+    info: data.info?.trim() || null,
+    price: data.price ?? null,
+    imageUrl: data.imageUrl?.trim() || null,
+    linkUrl: data.linkUrl?.trim() || null,
+    fixed: false,
+  };
+}
+
+export async function updateCandidate(
+  candidateSeq: number,
+  data: SaveCandidateRequest,
+): Promise<Candidate> {
+  const res = await apiFetch(`/api/candidate/${candidateSeq}`, {
+    method: 'PUT',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildSaveBody(data)),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `후보 수정 실패 (${res.status})`);
+  }
+  if (json?.code && json.code !== 'SUC001') {
+    throw new Error(json?.message ?? '후보 수정에 실패했습니다.');
+  }
+
+  const row = parseCandidateDetailResponse(json);
+  if (row) return row;
+  return {
+    candidateSeq,
+    topicSeq: data.topicSeq,
+    memberSeq: data.memberSeq,
+    name: data.name.trim(),
+    info: data.info?.trim() || null,
+    price: data.price ?? null,
+    imageUrl: data.imageUrl?.trim() || null,
+    linkUrl: data.linkUrl?.trim() || null,
+    fixed: false,
+  };
+}
+
 export function parseCandidateListResponse(json: any): Candidate[] {
   if (json?.code !== 'SUC001') return [];
   const data = json?.data;

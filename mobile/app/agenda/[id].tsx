@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as WebBrowser from 'expo-web-browser';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -121,9 +121,31 @@ export default function AgendaDetailScreen() {
     }
   }, [memberSeq, topicSeq, loadCommentsFor]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  const openCandidateEdit = useCallback(
+    (candidateSeq: number) => {
+      router.push({
+        pathname: '/candidate/edit',
+        params: {
+          candidateSeq: String(candidateSeq),
+          topicSeq: String(topicSeq),
+        },
+      });
+    },
+    [router, topicSeq],
+  );
+
+  const openCandidateCreate = useCallback(() => {
+    router.push({
+      pathname: '/candidate/edit',
+      params: { topicSeq: String(topicSeq) },
+    });
+  }, [router, topicSeq]);
 
   const current = candidates[index] ?? null;
   const currentCandidateSeq = current?.candidateSeq ?? null;
@@ -339,7 +361,7 @@ export default function AgendaDetailScreen() {
             <Text style={styles.navBtnText}>다음 ›</Text>
           </Pressable>
           <Pressable
-            onPress={() => Alert.alert('후보 추가', '후보 등록 화면은 곧 연결할게요.')}
+            onPress={openCandidateCreate}
             style={({ pressed }) => [styles.addBtn, { opacity: pressed ? 0.88 : 1 }]}>
             <Feather name="plus" size={13} color="#fff" />
             <Text style={styles.addBtnText}>후보 추가</Text>
@@ -420,6 +442,7 @@ export default function AgendaDetailScreen() {
                       candidate={item}
                       bg={CARD_BACKGROUNDS[itemIndex % CARD_BACKGROUNDS.length]}
                       onOpenLink={() => openLink(item.linkUrl)}
+                      onEdit={() => openCandidateEdit(seq)}
                       showTitlePickBadge={
                         topicVotingComplete && seq === decidedCandidateSeq
                       }
@@ -561,11 +584,13 @@ function CandidateCard({
   candidate,
   bg,
   onOpenLink,
+  onEdit,
   showTitlePickBadge,
 }: Readonly<{
   candidate: Candidate;
   bg: string;
   onOpenLink: () => void;
+  onEdit: () => void;
   showTitlePickBadge: boolean;
 }>) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -591,11 +616,20 @@ function CandidateCard({
           <Text style={[styles.candName, styles.candNameFlex]} numberOfLines={2}>
             {candidate.name}
           </Text>
-          {showTitlePickBadge ? (
-            <RNView style={styles.titlePickBadge}>
-              <Text style={styles.titlePickBadgeText}>Pick!</Text>
-            </RNView>
-          ) : null}
+          <RNView style={styles.candTitleActions}>
+            {showTitlePickBadge ? (
+              <RNView style={styles.titlePickBadge}>
+                <Text style={styles.titlePickBadgeText}>Pick!</Text>
+              </RNView>
+            ) : null}
+            <Pressable
+              onPress={onEdit}
+              hitSlop={8}
+              style={({ pressed }) => [styles.editBtn, { opacity: pressed ? 0.82 : 1 }]}>
+              <Feather name="edit-2" size={12} color="#0F6E56" />
+              <Text style={styles.editBtnText}>수정</Text>
+            </Pressable>
+          </RNView>
         </RNView>
         <Text style={styles.candPrice}>{formatCandidatePrice(candidate.price)}</Text>
 
@@ -968,6 +1002,24 @@ const styles = StyleSheet.create({
   },
   candName: { fontSize: 16, fontWeight: '600', color: '#2B2422' },
   candNameFlex: { flex: 1 },
+  candTitleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#9FE1CB',
+    backgroundColor: '#F2FBF8',
+  },
+  editBtnText: { fontSize: 11, fontWeight: '700', color: '#0F6E56' },
   titlePickBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,

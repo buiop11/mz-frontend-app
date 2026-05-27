@@ -1,65 +1,495 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Link, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View as RNView,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, View } from '@/components/Themed';
-import { agendas } from '@/src/data/mock';
-import { AppHeader } from '@/src/ui/components/AppHeader';
+import { getMemberCategories } from '@/src/api/category';
+import { getMemberTopics, TopicSummary } from '@/src/api/topic';
+import { useAuth } from '@/src/auth/AuthProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
+
+const FAB_COLOR = '#EF6B4F';
+
+function categoryEmoji(name: string): string {
+  const map: Record<string, string> = {
+    쇼핑: '🛍️',
+    데이트: '💕',
+    식사: '🍽️',
+    웨딩: '💍',
+    구매: '🛒',
+    여행: '✈️',
+    육아: '👶',
+  };
+  return map[name.trim()] ?? '📌';
+}
 
 export default function ListScreen() {
   const t = useTokens();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const memberSeq = user?.memberSeq;
+
+  const [categories, setCategories] = useState<Array<{ categorySeq: number; name: string; iconUrl: string | null }>>(
+    [],
+  );
+  const [selectedCategorySeq, setSelectedCategorySeq] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [topics, setTopics] = useState<TopicSummary[]>([]);
+  const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingTopics, setLoadingTopics] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fabBottom = Math.max(insets.bottom, 12) + 72;
+
+  const loadCategories = useCallback(async () => {
+    if (memberSeq == null) {
+      setCategories([]);
+      setLoadingCats(false);
+      return;
+    }
+    setLoadingCats(true);
+    try {
+      const res = await getMemberCategories({ memberSeq, currentPage: 1 });
+      setCategories(res.list);
+    } catch (e: unknown) {
+      console.error('[category] load failed', e);
+      setCategories([]);
+    } finally {
+      setLoadingCats(false);
+    }
+  }, [memberSeq]);
+
+  const loadTopics = useCallback(
+    async (categorySeq: number | null) => {
+      if (memberSeq == null) {
+        setTopics([]);
+        setLoadingTopics(false);
+        setError('회원번호를 확인할 수 없습니다. 다시 로그인해 주세요.');
+        return;
+      }
+      setLoadingTopics(true);
+      setError(null);
+      try {
+        const res = await getMemberTopics({
+          memberSeq,
+          currentPage: 1,
+          categorySeq: categorySeq ?? undefined,
+        });
+        setTopics(res.list);
+      } catch (e: unknown) {
+        console.error('[topic] load failed', e);
+        setTopics([]);
+        setError(e instanceof Error ? e.message : '안건을 불러오지 못했어요.');
+      } finally {
+        setLoadingTopics(false);
+      }
+    },
+    [memberSeq],
+  );
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  useEffect(() => {
+    loadTopics(selectedCategorySeq);
+  }, [loadTopics, selectedCategorySeq]);
+
+  const filteredTopics = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return topics;
+    return topics.filter((item) => item.title.toLowerCase().includes(q));
+  }, [query, topics]);
+
+  const openCreate = useCallback(() => {
+    const params: Record<string, string> = {};
+    if (selectedCategorySeq != null) params.categorySeq = String(selectedCategorySeq);
+    router.push({ pathname: '/create', params });
+  }, [router, selectedCategorySeq]);
+
+  const renderListBody = () => {
+    if (loadingTopics) {
+      return (
+        <Card border background="surface" radius={18} padding={20} style={styles.centerCard}>
+          <ActivityIndicator color={t.colors.tint} />
+          <Text style={[styles.hint, { color: t.colors.subtext }]}>안건을 불러오는 중이에요</Text>
+        </Card>
+      );
+    }
+
+    if (error) {
+      return (
+        <Card border background="surface" radius={18} padding={18}>
+          <Text style={[styles.errorTitle, { color: t.colors.text }]}>안건을 불러오지 못했어요</Text>
+          <Text style={[styles.errorBody, { color: t.colors.subtext }]}>{error}</Text>
+          <Pressable
+            onPress={() => loadTopics(selectedCategorySeq)}
+            style={({ pressed }) => [styles.retryBtn, { borderColor: t.colors.border, opacity: pressed ? 0.7 : 1 }]}>
+            <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 13 }}>다시 시도</Text>
+          </Pressable>
+        </Card>
+      );
+    }
+
+    if (filteredTopics.length === 0) {
+      return (
+        <Card border background="surface" radius={18} padding={20} style={styles.centerCard}>
+          <Text style={[styles.emptyTitle, { color: t.colors.text }]}>표시할 안건이 없어요</Text>
+          <Text style={[styles.hint, { color: t.colors.subtext }]}>다른 분야를 선택하거나 안건을 추가해보세요.</Text>
+        </Card>
+      );
+    }
+
+    return filteredTopics.map((tp) => (
+      <Pressable
+        key={tp.topicSeq}
+        onPress={() =>
+          router.push({
+            pathname: '/agenda/[id]',
+            params: {
+              id: String(tp.topicSeq),
+              title: tp.title,
+              categoryName: tp.categoryName ?? '',
+            },
+          })
+        }
+        style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}>
+        <Card border background="surface" radius={18} padding={0} style={styles.topicCard}>
+          <RNView style={styles.topicTop}>
+            <RNView style={styles.topicTextCol}>
+              <Text style={[styles.topicTitle, { color: t.colors.text }]} numberOfLines={1}>
+                {tp.title}
+              </Text>
+              <Text style={[styles.topicSub, { color: t.colors.subtext }]} numberOfLines={1}>
+                {buildTopicMeta(tp)}
+              </Text>
+            </RNView>
+            <RNView
+              style={[
+                styles.statusBadge,
+                { backgroundColor: tp.tagVariant === 'mint' ? '#DDF7F1' : '#2B2422' },
+              ]}>
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: tp.tagVariant === 'mint' ? '#248B82' : '#FFFFFF' },
+                ]}>
+                {tp.tagVariant === 'mint' ? tp.tag : 'Pick!'}
+              </Text>
+            </RNView>
+          </RNView>
+          <RNView style={[styles.topicActions, { borderTopColor: t.colors.border }]}>
+            <Pressable
+              onPress={() => Alert.alert('수정', '수정 기능은 API 연결 후 추가할게요.')}
+              style={({ pressed }) => [styles.actionBtn, { borderColor: t.colors.border, opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 12 }}>수정</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                Alert.alert('삭제', '삭제 기능은 API 연결 후 추가할게요.', [
+                  { text: '취소', style: 'cancel' },
+                  { text: '확인', style: 'destructive' },
+                ])
+              }
+              style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.7 : 1 }]}>
+              <Text style={styles.deleteText}>삭제</Text>
+            </Pressable>
+          </RNView>
+        </Card>
+      </Pressable>
+    ));
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background }]}>
-      <AppHeader title="안건 목록" leftIconName="chevron-left" onPressLeft={() => router.back()} />
+      <RNView style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Text style={[styles.title, { color: t.colors.text }]}>목록</Text>
+        <Pressable
+          onPress={() => router.push('/category/new')}
+          hitSlop={10}
+          style={({ pressed }) => [styles.headerAdd, { opacity: pressed ? 0.7 : 1 }]}>
+          <Feather name="plus" size={20} color={t.colors.tint} />
+        </Pressable>
+      </RNView>
 
-      <View style={styles.searchWrap} lightColor="transparent" darkColor="transparent">
-        <View style={[styles.searchBox, { backgroundColor: t.colors.muted, borderRadius: t.radius.md }]}>
-          <Feather name="search" size={18} color={t.colors.tabIconDefault} />
+      <RNView style={styles.catBlock}>
+        <Text style={[styles.catLabel, { color: t.colors.subtext }]}>분야</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.catScroll}
+          contentContainerStyle={styles.catScrollContent}
+          keyboardShouldPersistTaps="handled">
+          <CategoryChip
+            label="전체"
+            emoji="✨"
+            selected={selectedCategorySeq == null}
+            onPress={() => setSelectedCategorySeq(null)}
+            tint={t.colors.tint}
+            surface={t.colors.surface}
+            border={t.colors.border}
+            text={t.colors.text}
+          />
+          {loadingCats ? (
+            <RNView style={styles.catLoading}>
+              <ActivityIndicator size="small" color={t.colors.tint} />
+            </RNView>
+          ) : (
+            categories.map((c) => (
+              <CategoryChip
+                key={c.categorySeq}
+                label={c.name}
+                emoji={categoryEmoji(c.name)}
+                selected={selectedCategorySeq === c.categorySeq}
+                onPress={() => setSelectedCategorySeq(c.categorySeq)}
+                tint={t.colors.tint}
+                surface={t.colors.surface}
+                border={t.colors.border}
+                text={t.colors.text}
+              />
+            ))
+          )}
+        </ScrollView>
+      </RNView>
+
+      <RNView style={styles.searchWrap}>
+        <RNView style={[styles.searchBox, { backgroundColor: t.colors.muted }]}>
+          <Feather name="search" size={17} color={t.colors.tabIconDefault} />
           <TextInput
             placeholder="안건 검색"
             placeholderTextColor={t.colors.tabIconDefault}
             style={[styles.searchInput, { color: t.colors.text }]}
+            value={query}
+            onChangeText={setQuery}
           />
-        </View>
-      </View>
+        </RNView>
+      </RNView>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {agendas.map((a) => (
-          <Link key={a.id} href={`/agenda/${a.id}`} asChild>
-            <Pressable>
-              <Card border background="surface" radius={t.radius.lg} padding={12} style={styles.row}>
-                <View style={[styles.thumb, { backgroundColor: '#C8E8D8', borderRadius: 12, opacity: a.status === 'PICKED' ? 0.4 : 1 }]} />
-                <View style={styles.rowRight} lightColor="transparent" darkColor="transparent">
-                  <Text style={[styles.title, { color: t.colors.text }]} numberOfLines={1}>
-                    {a.title}
-                  </Text>
-                  <Text style={[styles.desc, { color: '#9A9080' }]} numberOfLines={1}>
-                    {a.subtitle}
-                  </Text>
-                </View>
-              </Card>
-            </Pressable>
-          </Link>
-        ))}
+      <ScrollView
+        style={styles.listScroll}
+        contentContainerStyle={[styles.listContent, { paddingBottom: fabBottom + 16 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+        {renderListBody()}
       </ScrollView>
+
+      <Pressable
+        onPress={openCreate}
+        style={({ pressed }) => [
+          styles.fab,
+          { bottom: fabBottom, backgroundColor: FAB_COLOR, opacity: pressed ? 0.88 : 1 },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="안건 추가">
+        <Feather name="plus" size={28} color="#FFFFFF" />
+      </Pressable>
     </View>
+  );
+}
+
+function buildTopicMeta(tp: TopicSummary) {
+  const sub = (tp.sub ?? '').trim();
+  if (sub) return sub;
+  return tp.categoryName ?? '';
+}
+
+function CategoryChip({
+  label,
+  emoji,
+  selected,
+  onPress,
+  tint,
+  surface,
+  border,
+  text,
+}: Readonly<{
+  label: string;
+  emoji: string;
+  selected: boolean;
+  onPress: () => void;
+  tint: string;
+  surface: string;
+  border: string;
+  text: string;
+}>) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          backgroundColor: selected ? tint : surface,
+          borderColor: selected ? tint : border,
+          opacity: pressed ? 0.82 : 1,
+        },
+      ]}>
+      <Text style={styles.chipEmoji}>{emoji}</Text>
+      <Text style={[styles.chipLabel, { color: selected ? '#FFFFFF' : text }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  searchWrap: { paddingHorizontal: 16, paddingTop: 12 },
-  searchBox: { height: 44, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
-  content: { padding: 16, paddingTop: 12, gap: 12, paddingBottom: 24 },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  thumb: { width: 64, height: 64 },
-  rowRight: { flex: 1, gap: 4 },
-  title: { fontSize: 15, fontWeight: '600' },
-  desc: { fontSize: 12 },
+  header: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  headerAdd: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(122, 204, 192, 0.12)',
+  },
+  catBlock: {
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  catLabel: {
+    paddingHorizontal: 16,
+    marginBottom: 6,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  catScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  catScrollContent: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginRight: 8,
+  },
+  chipEmoji: { fontSize: 14, marginRight: 5 },
+  chipLabel: { fontSize: 13, fontWeight: '700', maxWidth: 120 },
+  catLoading: {
+    height: 36,
+    minWidth: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  searchWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  searchBox: {
+    height: 44,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  listScroll: { flex: 1 },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  centerCard: { alignItems: 'center', justifyContent: 'center' },
+  hint: { marginTop: 10, fontSize: 12 },
+  errorTitle: { fontSize: 15, fontWeight: '800' },
+  errorBody: { marginTop: 8, fontSize: 12, lineHeight: 18 },
+  emptyTitle: { fontSize: 15, fontWeight: '800' },
+  retryBtn: {
+    marginTop: 14,
+    alignSelf: 'flex-start',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  topicCard: { marginBottom: 12, overflow: 'hidden' },
+  topicTop: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  topicTextCol: { flex: 1, paddingRight: 8 },
+  topicTitle: { fontSize: 15, fontWeight: '800' },
+  topicSub: { marginTop: 5, fontSize: 12, lineHeight: 17 },
+  statusBadge: {
+    height: 26,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusText: { fontSize: 11, fontWeight: '800' },
+  topicActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actionBtn: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteBtn: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#F4B6AE',
+    backgroundColor: '#FFF7F6',
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteText: { color: '#D65041', fontSize: 12, fontWeight: '800' },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 30,
+    elevation: 6,
+  },
 });
-

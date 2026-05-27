@@ -79,8 +79,53 @@ function optionalString(value: unknown): string | undefined {
   }
 }
 
-function isPickStatus(status: string) {
+export function isPickStatus(status: string) {
   return ['PICK', 'DONE', 'CONFIRMED', 'COMPLETED'].includes(status);
+}
+
+export type TopicDetail = TopicSummary & {
+  pickedCandidateSeq: number | null;
+};
+
+export function parseTopicDetailResponse(json: unknown, topicSeq: number): TopicDetail | null {
+  const root = json as { code?: string; data?: unknown };
+  if (root?.code !== 'SUC001' || root.data == null) return null;
+
+  const row = normalizeTopicRow(
+    typeof root.data === 'object' && !Array.isArray(root.data) ? root.data : { topicSeq },
+  );
+  const raw = root.data as Record<string, unknown>;
+  const pickedRaw =
+    raw.pickedCandidateSeq ?? raw.candidateSeq ?? raw.pickedSeq ?? row.candidateSeq ?? null;
+  const pickedNum =
+    typeof pickedRaw === 'number' ? pickedRaw : pickedRaw != null ? Number(pickedRaw) : NaN;
+
+  return {
+    ...row,
+    topicSeq: String(topicSeq),
+    pickedCandidateSeq: Number.isFinite(pickedNum) && pickedNum > 0 ? pickedNum : null,
+  };
+}
+
+export async function getTopicDetail(
+  topicSeq: number,
+  memberSeq?: number,
+): Promise<TopicDetail | null> {
+  const q =
+    memberSeq != null ? `?memberSeq=${encodeURIComponent(String(memberSeq))}` : '';
+  const path = `/api/topic/${topicSeq}${q}`;
+
+  const res = await apiFetch(path, { method: 'GET', headers: { Accept: 'application/json' } });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `안건 상세 조회 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? '안건 상세 조회에 실패했습니다.');
+  }
+
+  return parseTopicDetailResponse(json, topicSeq);
 }
 
 function defaultTagForStatus(status: string): string {

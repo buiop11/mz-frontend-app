@@ -33,11 +33,13 @@ export default function CreateScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     topicSeq?: string;
+    categorySeq?: string;
     categoryAdded?: string;
     categoryName?: string;
   }>();
 
   const topicSeqParam = typeof params.topicSeq === 'string' ? params.topicSeq : null;
+  const categorySeqHint = typeof params.categorySeq === 'string' ? params.categorySeq : null;
   const categoryAdded = typeof params.categoryAdded === 'string' ? params.categoryAdded : null;
   const categoryNameHint = typeof params.categoryName === 'string' ? params.categoryName : null;
 
@@ -77,7 +79,10 @@ export default function CreateScreen() {
         if (cancelled) return;
         setCategories(parsed.list);
         if (parsed.list.length > 0) {
-          setCategorySeq(String(parsed.list[0].categorySeq));
+          const hint = categorySeqHint ? Number.parseInt(categorySeqHint, 10) : NaN;
+          const match =
+            Number.isFinite(hint) && parsed.list.some((c) => c.categorySeq === hint);
+          setCategorySeq(match ? String(hint) : String(parsed.list[0].categorySeq));
         }
       } catch {
         if (!cancelled) setCategories(FALLBACK_CATEGORIES);
@@ -88,7 +93,7 @@ export default function CreateScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [categorySeqHint]);
 
   useEffect(() => {
     if (!topicSeqParam || !topicSeqParam.trim()) return;

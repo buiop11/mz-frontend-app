@@ -127,7 +127,16 @@ export default function HomeScreen() {
           <TopicCard
             key={topic.topicSeq}
             topic={topic}
-            onPress={() => router.push(topic.href as any)}
+            onPress={() =>
+              router.push({
+                pathname: '/agenda/[id]',
+                params: {
+                  id: String(topic.topicSeq),
+                  title: topic.title,
+                  categoryName: topic.categoryName ?? '',
+                },
+              })
+            }
             textColor={t.colors.text}
             subColor={t.colors.subtext}
           />

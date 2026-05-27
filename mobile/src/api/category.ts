@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './client';
+import { apiFetch } from './fetch';
 
 export type Category = {
   categorySeq: number;
@@ -9,6 +10,11 @@ export type Category = {
 export type CategoryParseResult = {
   list: Category[];
   fromApi: boolean;
+};
+
+export type CategoryListRequest = {
+  memberSeq: number;
+  currentPage?: number;
 };
 
 export const FALLBACK_CATEGORIES: Category[] = [
@@ -64,4 +70,35 @@ export async function getCategories(
   } catch {
     return { list: FALLBACK_CATEGORIES, fromApi: false };
   }
+}
+
+export async function getMemberCategories(params: CategoryListRequest): Promise<CategoryParseResult> {
+  const q = new URLSearchParams({
+    memberSeq: String(params.memberSeq),
+    currentPage: String(params.currentPage ?? 1),
+  });
+  const path = `/api/category/list?${q.toString()}`;
+
+  const res = await apiFetch(path, { method: 'GET', headers: { Accept: 'application/json' } });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `카테고리 조회 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? '카테고리 조회에 실패했습니다.');
+  }
+
+  // 계약: data가 배열
+  const arr = Array.isArray(json?.data) ? json.data : [];
+  const list: Category[] = arr
+    .map((row: any) => ({
+      categorySeq: typeof row?.categorySeq === 'number' ? row.categorySeq : Number(row?.categorySeq) || 0,
+      name: typeof row?.name === 'string' ? row.name.trim() : '',
+      iconUrl: typeof row?.iconUrl === 'string' && row.iconUrl.trim() ? row.iconUrl.trim() : null,
+    }))
+    .filter((row: Category) => row.categorySeq && row.name);
+
+  if (list.length === 0) return { list: FALLBACK_CATEGORIES, fromApi: false };
+  return { list, fromApi: true };
 }

@@ -235,3 +235,23 @@ export async function pickCandidate(params: PickCandidateRequest): Promise<void>
     throw new Error(json?.message ?? 'Pick 처리에 실패했습니다.');
   }
 }
+
+/** 최종 Pick (신규 스펙) — /api/candidate/{candidateSeq}/pick */
+export async function pickCandidateBySeq(candidateSeq: number): Promise<void> {
+  const res = await apiFetch(`/api/candidate/${candidateSeq}/pick`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ candidateSeq }),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `Pick 처리 실패 (${res.status})`);
+  }
+  if (json?.code && json.code !== 'SUC001') {
+    throw new Error(json?.message ?? 'Pick 처리에 실패했습니다.');
+  }
+}

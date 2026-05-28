@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as WebBrowser from 'expo-web-browser';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,7 +24,7 @@ import {
   Candidate,
   formatCandidatePrice,
   getCandidateList,
-  pickCandidate,
+  pickCandidateBySeq,
 } from '@/src/api/candidate';
 import { Comment, createComment, getCommentList } from '@/src/api/comment';
 import { getTopicDetail, isPickStatus, type TopicDetail } from '@/src/api/topic';
@@ -233,11 +233,7 @@ export default function AgendaDetailScreen() {
     if (memberSeq == null || pickTargetSeq == null) return;
     setPicking(true);
     try {
-      await pickCandidate({
-        memberSeq,
-        topicSeq,
-        candidateSeq: pickTargetSeq,
-      });
+      await pickCandidateBySeq(pickTargetSeq);
       setPickedSeq(pickTargetSeq);
       setCandidates((prev) =>
         prev.map((c) => ({ ...c, fixed: c.candidateSeq === pickTargetSeq })),

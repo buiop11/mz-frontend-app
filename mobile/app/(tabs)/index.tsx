@@ -185,7 +185,7 @@ export default function HomeScreen() {
             />
           ))}
           <Text style={styles.heroTitle}>
-            {displayName}님, 이번 주 {weeklyAgendaCount}개의 중대 의결사항이 있어요!
+            {displayName}님, 이번 주 {weeklyAgendaCount}개의 의결사항이 있어요!
           </Text>
           <Text style={styles.heroSub}>
             링크를 붙여 넣고 후보를 모아, 투표로 가볍게 결정해요.

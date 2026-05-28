@@ -4,8 +4,33 @@ import { apiFetch } from './fetch';
 export type Category = {
   categorySeq: number;
   name: string;
+  emoji: string;
   iconUrl: string | null;
 };
+
+function resolveCategoryEmoji(row: Record<string, unknown>): string {
+  const raw =
+    row.emoji ?? row.iconEmoji ?? row.categoryEmoji ?? row.emojiIcon ?? null;
+  let text = '';
+  if (typeof raw === 'string') text = raw.trim();
+  else if (typeof raw === 'number' || typeof raw === 'boolean') text = String(raw).trim();
+  return text || '📌';
+}
+
+function mapCategoryRow(row: Record<string, unknown>): Category | null {
+  const categorySeq =
+    typeof row.categorySeq === 'number' ? row.categorySeq : Number(row.categorySeq) || 0;
+  const name = typeof row.name === 'string' ? row.name.trim() : '';
+  if (!categorySeq || !name) return null;
+  const iconUrl =
+    typeof row.iconUrl === 'string' && row.iconUrl.trim() ? row.iconUrl.trim() : null;
+  return {
+    categorySeq,
+    name,
+    emoji: resolveCategoryEmoji(row),
+    iconUrl,
+  };
+}
 
 export type CategoryParseResult = {
   list: Category[];
@@ -18,28 +43,18 @@ export type CategoryListRequest = {
 };
 
 export const FALLBACK_CATEGORIES: Category[] = [
-  { categorySeq: -1, name: '웨딩', iconUrl: null },
-  { categorySeq: -2, name: '구매', iconUrl: null },
-  { categorySeq: -3, name: '데이트', iconUrl: null },
-  { categorySeq: -4, name: '식사', iconUrl: null },
+  { categorySeq: -1, name: '웨딩', emoji: '💍', iconUrl: null },
+  { categorySeq: -2, name: '구매', emoji: '🛒', iconUrl: null },
+  { categorySeq: -3, name: '데이트', emoji: '💕', iconUrl: null },
+  { categorySeq: -4, name: '식사', emoji: '🍽️', iconUrl: null },
 ];
 
 function normalizeList(json: any): Category[] {
   const list = json?.data?.list;
   if (!Array.isArray(list)) return [];
   return list
-    .map((row: any) => ({
-      categorySeq:
-        typeof row?.categorySeq === 'number'
-          ? row.categorySeq
-          : Number(row?.categorySeq) || 0,
-      name: typeof row?.name === 'string' ? row.name.trim() : '',
-      iconUrl:
-        typeof row?.iconUrl === 'string' && row.iconUrl.trim()
-          ? row.iconUrl.trim()
-          : null,
-    }))
-    .filter((row: Category) => row.name.length > 0);
+    .map((row: any) => mapCategoryRow(row && typeof row === 'object' ? row : {}))
+    .filter((row): row is Category => row != null);
 }
 
 export function parseCategoryApiResponse(json: any): CategoryParseResult {
@@ -92,12 +107,8 @@ export async function getMemberCategories(params: CategoryListRequest): Promise<
   // 계약: data가 배열
   const arr = Array.isArray(json?.data) ? json.data : [];
   const list: Category[] = arr
-    .map((row: any) => ({
-      categorySeq: typeof row?.categorySeq === 'number' ? row.categorySeq : Number(row?.categorySeq) || 0,
-      name: typeof row?.name === 'string' ? row.name.trim() : '',
-      iconUrl: typeof row?.iconUrl === 'string' && row.iconUrl.trim() ? row.iconUrl.trim() : null,
-    }))
-    .filter((row: Category) => row.categorySeq && row.name);
+    .map((row: any) => mapCategoryRow(row && typeof row === 'object' ? row : {}))
+    .filter((row): row is Category => row != null);
 
   if (list.length === 0) return { list: FALLBACK_CATEGORIES, fromApi: false };
   return { list, fromApi: true };

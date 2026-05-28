@@ -83,8 +83,37 @@ export function isPickStatus(status: string) {
   return ['PICK', 'DONE', 'CONFIRMED', 'COMPLETED'].includes(status);
 }
 
+export type TopicFileItem = {
+  memberSeq: number;
+  fileOriginalName: string;
+  fileSize: number;
+  filePath: string;
+  fileExtensionName: string;
+  delYn?: boolean;
+  attachingFileSeq?: number;
+};
+
+export type TopicSaveRequest = {
+  memberSeq: number;
+  categorySeq: number;
+  title: string;
+  emoji: string;
+  status: string;
+  googleEventId?: string | null;
+  fileList?: TopicFileItem[];
+};
+
+export type TopicUpdateRequest = {
+  memberSeq: number;
+  topicSeq: number;
+  emoji: string;
+  title: string;
+  googleEventId?: string | null;
+};
+
 export type TopicDetail = TopicSummary & {
   pickedCandidateSeq: number | null;
+  fileList?: TopicFileItem[];
 };
 
 export function parseTopicDetailResponse(json: unknown, topicSeq: number): TopicDetail | null {
@@ -100,11 +129,127 @@ export function parseTopicDetailResponse(json: unknown, topicSeq: number): Topic
   const pickedNum =
     typeof pickedRaw === 'number' ? pickedRaw : pickedRaw != null ? Number(pickedRaw) : NaN;
 
+  const fileList = parseTopicFileList(raw.fileList);
+
   return {
     ...row,
     topicSeq: String(topicSeq),
     pickedCandidateSeq: Number.isFinite(pickedNum) && pickedNum > 0 ? pickedNum : null,
+    fileList,
   };
+}
+
+function parseTopicFileList(raw: unknown): TopicFileItem[] {
+  if (!Array.isArray(raw)) return [];
+  const list: TopicFileItem[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const memberSeq =
+      typeof r.memberSeq === 'number' ? r.memberSeq : Number(r.memberSeq);
+    if (!Number.isFinite(memberSeq)) continue;
+    list.push({
+      memberSeq,
+      fileOriginalName: String(r.fileOriginalName ?? ''),
+      fileSize: typeof r.fileSize === 'number' ? r.fileSize : Number(r.fileSize) || 0,
+      filePath: String(r.filePath ?? ''),
+      fileExtensionName: String(r.fileExtensionName ?? ''),
+      delYn: Boolean(r.delYn),
+      attachingFileSeq:
+        typeof r.attachingFileSeq === 'number' ? r.attachingFileSeq : undefined,
+    });
+  }
+  return list;
+}
+
+function parseTopicSaveResponse(json: unknown, fallbackTopicSeq?: number): TopicDetail | null {
+  const root = json as { code?: string; data?: unknown };
+  if (root?.code !== 'SUC001' || root.data == null) return null;
+
+  const data = root.data;
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    const seqRaw = (data as Record<string, unknown>).topicSeq ?? fallbackTopicSeq;
+    const seq =
+      typeof seqRaw === 'number' ? seqRaw : Number.parseInt(String(seqRaw), 10);
+    if (Number.isFinite(seq) && seq > 0) {
+      return parseTopicDetailResponse(json, seq);
+    }
+  }
+
+  const seqNum = typeof data === 'number' ? data : Number.parseInt(String(data), 10);
+  if (Number.isFinite(seqNum) && seqNum > 0) {
+    return parseTopicDetailResponse(
+      { code: 'SUC001', data: { topicSeq: seqNum } },
+      seqNum,
+    );
+  }
+  return null;
+}
+
+export async function createTopic(data: TopicSaveRequest): Promise<TopicDetail> {
+  const res = await apiFetch('/api/topic', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      memberSeq: data.memberSeq,
+      fileList: data.fileList ?? [],
+      categorySeq: data.categorySeq,
+      emoji: data.emoji,
+      title: data.title,
+      status: data.status,
+      googleEventId: data.googleEventId ?? null,
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `안건 등록 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? '안건 등록에 실패했습니다.');
+  }
+
+  const detail = parseTopicSaveResponse(json);
+  if (!detail) {
+    throw new Error('안건 등록 응답을 해석할 수 없습니다.');
+  }
+  return detail;
+}
+
+export async function updateTopic(
+  data: TopicUpdateRequest,
+): Promise<TopicDetail> {
+  const res = await apiFetch(`/api/topic`, {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      memberSeq: data.memberSeq,
+      topicSeq: data.topicSeq,
+      emoji: data.emoji,
+      title: data.title,
+      googleEventId: data.googleEventId ?? null,
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `안건 수정 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? '안건 수정에 실패했습니다.');
+  }
+
+  const detail = parseTopicSaveResponse(json, data.topicSeq);
+  if (!detail) {
+    throw new Error('안건 수정 응답을 해석할 수 없습니다.');
+  }
+  return detail;
 }
 
 export async function getTopicDetail(

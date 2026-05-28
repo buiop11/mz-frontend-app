@@ -13,26 +13,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, View } from '@/components/Themed';
-import { getMemberCategories } from '@/src/api/category';
+import { getMemberCategories, type Category } from '@/src/api/category';
 import { getMemberTopics, TopicSummary } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
 const FAB_COLOR = '#EF6B4F';
-
-function categoryEmoji(name: string): string {
-  const map: Record<string, string> = {
-    쇼핑: '🛍️',
-    데이트: '💕',
-    식사: '🍽️',
-    웨딩: '💍',
-    구매: '🛒',
-    여행: '✈️',
-    육아: '👶',
-  };
-  return map[name.trim()] ?? '📌';
-}
 
 export default function ListScreen() {
   const t = useTokens();
@@ -41,9 +28,7 @@ export default function ListScreen() {
   const { user } = useAuth();
   const memberSeq = user?.memberSeq;
 
-  const [categories, setCategories] = useState<Array<{ categorySeq: number; name: string; iconUrl: string | null }>>(
-    [],
-  );
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategorySeq, setSelectedCategorySeq] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [topics, setTopics] = useState<TopicSummary[]>([]);
@@ -192,7 +177,12 @@ export default function ListScreen() {
           </RNView>
           <RNView style={[styles.topicActions, { borderTopColor: t.colors.border }]}>
             <Pressable
-              onPress={() => Alert.alert('수정', '수정 기능은 API 연결 후 추가할게요.')}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                const params: Record<string, string> = { topicSeq: String(tp.topicSeq) };
+                if (tp.categorySeq) params.categorySeq = tp.categorySeq;
+                router.push({ pathname: '/create', params });
+              }}
               style={({ pressed }) => [styles.actionBtn, { borderColor: t.colors.border, opacity: pressed ? 0.7 : 1 }]}>
               <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 12 }}>수정</Text>
             </Pressable>
@@ -251,7 +241,7 @@ export default function ListScreen() {
               <CategoryChip
                 key={c.categorySeq}
                 label={c.name}
-                emoji={categoryEmoji(c.name)}
+                emoji={c.emoji}
                 selected={selectedCategorySeq === c.categorySeq}
                 onPress={() => setSelectedCategorySeq(c.categorySeq)}
                 tint={t.colors.tint}

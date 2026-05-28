@@ -1,23 +1,51 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View as RNView,
+} from 'react-native';
 
-import { Text, View } from '@/components/Themed';
+import { View } from '@/components/Themed';
 import { apiFetch } from '@/src/api/fetch';
+import { useAuth } from '@/src/auth/AuthProvider';
 import { AppHeader } from '@/src/ui/components/AppHeader';
 import { useTokens } from '@/src/ui/tokens';
+
+const EMOJI_OPTIONS = [
+  '📌','✨','🛍️','💕','🍽️',
+  '💍','✈️','👶','🏠','🍼',
+  '🎁','🎉','🧸','💄','👗',
+  '👔','👟','📷','🎬','🎧',
+  '🧾','💳','🧠','💪','🧘',
+  '👟','🥩'
+];
 
 export default function CategoryNewScreen() {
   const t = useTokens();
   const router = useRouter();
+  const { user } = useAuth();
+  const memberSeq = user?.memberSeq;
   const [name, setName] = useState('');
+  const [emoji, setEmoji] = useState<string>('📌');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   async function handleSave() {
     const trimmed = name.trim();
     if (!trimmed) {
       setMessage('카테고리 이름을 입력해 주세요.');
+      return;
+    }
+    if (memberSeq == null) {
+      setMessage('로그인이 필요합니다. 다시 로그인해 주세요.');
       return;
     }
     setSubmitting(true);
@@ -29,7 +57,7 @@ export default function CategoryNewScreen() {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ memberSeq, name: trimmed, emoji }),
       });
       const json = await res.json().catch(() => ({} as any));
       if (res.ok && (json?.code === 'SUC001' || res.status === 200)) {
@@ -85,6 +113,27 @@ export default function CategoryNewScreen() {
             returnKeyType="done"
             onSubmitEditing={handleSave}
           />
+
+          <Text style={[styles.label, { color: t.colors.text, marginTop: 8 }]}>이모지</Text>
+          <Pressable
+            onPress={() => setEmojiOpen(true)}
+            disabled={submitting}
+            style={({ pressed }) => [
+              styles.emojiPick,
+              {
+                borderColor: t.colors.border,
+                backgroundColor: t.colors.surface,
+                borderRadius: t.radius.lg,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}>
+            <Text style={styles.emojiBig}>{emoji}</Text>
+            <Text style={{ color: t.colors.text, fontSize: 13, fontWeight: '700' }}>
+              이모지 선택
+            </Text>
+            <Text style={{ color: t.colors.subtext, fontSize: 12 }}>눌러서 변경</Text>
+          </Pressable>
+
           <Text style={[styles.help, { color: t.colors.subtext }]}>
             안건을 묶을 분야를 만들면 목록에서 필터링하기 쉬워요.
           </Text>
@@ -122,6 +171,53 @@ export default function CategoryNewScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={emojiOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEmojiOpen(false)}>
+        <RNView style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setEmojiOpen(false)} />
+          <RNView
+            style={[
+              styles.modalSheet,
+              { backgroundColor: t.colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
+            ]}>
+            <RNView style={styles.modalHeader}>
+              <Text style={{ color: t.colors.text, fontSize: 15, fontWeight: '800' }}>
+                이모지 선택
+              </Text>
+              <Pressable onPress={() => setEmojiOpen(false)} hitSlop={10}>
+                <Text style={{ color: t.colors.tint, fontSize: 13, fontWeight: '800' }}>닫기</Text>
+              </Pressable>
+            </RNView>
+
+            <ScrollView contentContainerStyle={styles.emojiGrid} showsVerticalScrollIndicator={false}>
+              {EMOJI_OPTIONS.map((e) => {
+                const active = e === emoji;
+                return (
+                  <Pressable
+                    key={e}
+                    onPress={() => {
+                      setEmoji(e);
+                      setEmojiOpen(false);
+                    }}
+                    style={[
+                      styles.emojiCell,
+                      {
+                        borderColor: active ? t.colors.tint : t.colors.border,
+                        backgroundColor: active ? t.colors.muted : t.colors.background,
+                      },
+                    ]}>
+                    <Text style={{ fontSize: 24 }}>{e}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </RNView>
+        </RNView>
+      </Modal>
     </View>
   );
 }
@@ -131,6 +227,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: 16, gap: 12, paddingBottom: 24 },
   label: { fontSize: 14, fontWeight: '600' },
+  emojiPick: {
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  emojiBig: { fontSize: 26, width: 34, textAlign: 'center' },
   input: {
     borderWidth: 1,
     paddingHorizontal: 16,
@@ -146,6 +251,28 @@ const styles = StyleSheet.create({
   },
   submit: {
     height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modalBackdrop: { flex: 1 },
+  modalSheet: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22, maxHeight: '70%' },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+  },
+  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 12 },
+  emojiCell: {
+    width: 52,
+    height: 52,
+    borderWidth: 1,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

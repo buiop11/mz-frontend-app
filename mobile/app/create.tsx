@@ -1,36 +1,72 @@
 import Feather from '@expo/vector-icons/Feather';
+import * as Clipboard from 'expo-clipboard';
+import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Share,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import {
   FALLBACK_CATEGORIES,
-  parseCategoryApiResponse,
+  getMemberCategories,
   type Category,
 } from '@/src/api/category';
-import { apiFetch } from '@/src/api/fetch';
-import { FALLBACK_TOPICS, pickTopicSummaryForSeq } from '@/src/api/topic';
+import {
+  createTopic,
+  getTopicDetail,
+  updateTopic,
+  type TopicFileItem,
+} from '@/src/api/topic';
+import { useAuth } from '@/src/auth/AuthProvider';
 import { AppHeader } from '@/src/ui/components/AppHeader';
 import { useTokens } from '@/src/ui/tokens';
 
+const EMOJI_OPTIONS = [
+  '🗳️','✨','📌','🛍️','🛒',
+  '💕','🍽️','☕','🍰','💍',
+  '✈️','🏨','👶','🍼','🎁',
+  '🎉','🏠','📷','🎬','🎧',
+  '💌',
+];
+
+const STATUS_OPTIONS = [
+  { value: 'VOTING', label: '투표 중' },
+  { value: 'PICK', label: '결정 완료' },
+] as const;
+
 type InviteMode = 'invite' | 'solo';
 
-function extractTopicSeqFromCreateResponse(json: any): number | null {
-  const d = json?.data;
-  if (d == null) return null;
-  if (typeof d === 'number' && Number.isFinite(d) && d > 0) return d;
-  if (typeof d === 'object') {
-    const v = d.topicSeq ?? d.topicId ?? d.id ?? d.seq;
-    const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10);
-    if (Number.isFinite(n) && n > 0) return n;
+async function copyToClipboard(text: string, okMessage = '클립보드에 복사했어요.') {
+  if (!text) return;
+  await Clipboard.setStringAsync(text);
+  Alert.alert('복사 완료', okMessage);
+}
+
+async function shareText(text: string) {
+  if (!text) return;
+  try {
+    await Share.share({ message: text });
+  } catch {
+    /* noop */
   }
-  return null;
 }
 
 export default function CreateScreen() {
   const t = useTokens();
   const router = useRouter();
+  const { user } = useAuth();
+  const memberSeq = user?.memberSeq;
+
   const params = useLocalSearchParams<{
     topicSeq?: string;
     categorySeq?: string;
@@ -43,14 +79,26 @@ export default function CreateScreen() {
   const categoryAdded = typeof params.categoryAdded === 'string' ? params.categoryAdded : null;
   const categoryNameHint = typeof params.categoryName === 'string' ? params.categoryName : null;
 
+  const editTopicSeq = useMemo(() => {
+    const raw = topicSeqParam?.trim();
+    if (!raw) return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 && String(n) === raw ? n : null;
+  }, [topicSeqParam]);
+
+  const isEditMode = editTopicSeq != null;
+
   const [title, setTitle] = useState('');
+  const [emoji, setEmoji] = useState(EMOJI_OPTIONS[0]);
+  const [status, setStatus] = useState<string>('VOTING');
+  const [inviteMode, setInviteMode] = useState<InviteMode>('invite');
+  const [fileList, setFileList] = useState<TopicFileItem[]>([]);
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
   const [categorySeq, setCategorySeq] = useState<string>(
     String(FALLBACK_CATEGORIES[0]?.categorySeq ?? ''),
   );
-  const [inviteMode, setInviteMode] = useState<InviteMode>('invite');
-  const [inviteContact, setInviteContact] = useState('');
   const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
 
@@ -61,70 +109,73 @@ export default function CreateScreen() {
   }, [categoryAdded]);
 
   useEffect(() => {
-    if (categoryNameHint && categoryNameHint.trim()) {
+    if (categoryNameHint?.trim()) {
       setBanner(`방금 입력한 분야: ${categoryNameHint.trim()}`);
     }
   }, [categoryNameHint]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoadingCats(true);
-      try {
-        const res = await apiFetch('/api/category?currentPage=1', {
-          headers: { Accept: 'application/json' },
-        });
-        const json = await res.json();
-        const parsed = parseCategoryApiResponse(json);
-        if (cancelled) return;
-        setCategories(parsed.list);
-        if (parsed.list.length > 0) {
-          const hint = categorySeqHint ? Number.parseInt(categorySeqHint, 10) : NaN;
-          const match =
-            Number.isFinite(hint) && parsed.list.some((c) => c.categorySeq === hint);
-          setCategorySeq(match ? String(hint) : String(parsed.list[0].categorySeq));
-        }
-      } catch {
-        if (!cancelled) setCategories(FALLBACK_CATEGORIES);
-      } finally {
-        if (!cancelled) setLoadingCats(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [categorySeqHint]);
-
-  useEffect(() => {
-    if (!topicSeqParam || !topicSeqParam.trim()) return;
-    const raw = topicSeqParam.trim();
-    const seq = Number.parseInt(raw, 10);
-    if (Number.isFinite(seq) && seq > 0 && String(seq) === raw) {
-      let cancelled = false;
-      (async () => {
-        try {
-          const qs = `topicSeq=${encodeURIComponent(seq)}&currentPage=1`;
-          const res = await apiFetch(`/api/topic?${qs}`, {
-            method: 'GET',
-            headers: { Accept: 'application/json' },
-          });
-          const json = await res.json();
-          if (cancelled) return;
-          const sum = pickTopicSummaryForSeq(json, seq);
-          if (sum?.title) setTitle(sum.title);
-        } catch {
-          /* noop */
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
+  const loadCategories = useCallback(async () => {
+    if (memberSeq == null) {
+      setCategories(FALLBACK_CATEGORIES);
+      setLoadingCats(false);
+      return;
     }
+    setLoadingCats(true);
+    try {
+      const parsed = await getMemberCategories({ memberSeq, currentPage: 1 });
+      setCategories(parsed.list);
+      if (parsed.list.length > 0) {
+        const hint = categorySeqHint ? Number.parseInt(categorySeqHint, 10) : Number.NaN;
+        const match =
+          Number.isFinite(hint) && parsed.list.some((c) => c.categorySeq === hint);
+        setCategorySeq((prev) => {
+          if (match) return String(hint);
+          if (prev && parsed.list.some((c) => String(c.categorySeq) === prev)) return prev;
+          return String(parsed.list[0].categorySeq);
+        });
+      }
+    } catch {
+      setCategories(FALLBACK_CATEGORIES);
+    } finally {
+      setLoadingCats(false);
+    }
+  }, [memberSeq, categorySeqHint]);
 
-    const match = FALLBACK_TOPICS.find((tp) => String(tp.topicSeq) === raw);
-    if (match?.title) setTitle(match.title);
-    return undefined;
-  }, [topicSeqParam]);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const loadTopicDetail = useCallback(async () => {
+    if (!isEditMode || editTopicSeq == null || memberSeq == null) return;
+    setLoadingDetail(true);
+    setBanner(null);
+    try {
+      const detail = await getTopicDetail(editTopicSeq, memberSeq);
+      if (!detail) {
+        setBanner('안건 정보를 불러오지 못했습니다.');
+        return;
+      }
+      setTitle(detail.title);
+      setEmoji(detail.emoji || EMOJI_OPTIONS[0]);
+      setStatus(detail.status || 'VOTING');
+      setFileList(detail.fileList ?? []);
+      if (detail.categorySeq) {
+        const catNum = Number.parseInt(detail.categorySeq, 10);
+        if (Number.isFinite(catNum) && catNum > 0) {
+          setCategorySeq(String(catNum));
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setBanner(msg || '안건 정보를 불러오지 못했습니다.');
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, [isEditMode, editTopicSeq, memberSeq]);
+
+  useEffect(() => {
+    if (isEditMode) loadTopicDetail();
+  }, [isEditMode, loadTopicDetail]);
 
   const categoryLabel = useMemo(() => {
     const n = Number.parseInt(categorySeq, 10);
@@ -132,61 +183,91 @@ export default function CreateScreen() {
     return row?.name ?? '';
   }, [categories, categorySeq]);
 
+  const inviteLink = useMemo(() => {
+    if (!isEditMode || editTopicSeq == null) return '';
+    return Linking.createURL('/invite', { queryParams: { topicSeq: String(editTopicSeq) } });
+  }, [isEditMode, editTopicSeq]);
+
   async function handleSubmit() {
     const trimmed = title.trim();
     if (!trimmed) {
       setBanner('안건 제목을 입력해 주세요.');
       return;
     }
+    if (memberSeq == null) {
+      Alert.alert('로그인 필요', '안건을 저장하려면 로그인이 필요합니다.');
+      return;
+    }
+    const catNum = Number.parseInt(categorySeq, 10);
+    if (!Number.isFinite(catNum) || catNum <= 0) {
+      setBanner('카테고리를 선택해 주세요.');
+      return;
+    }
+
     setSubmitting(true);
     setBanner(null);
     try {
-      const catNum = Number.parseInt(categorySeq, 10);
       const payload = {
+        memberSeq,
+        fileList,
+        categorySeq: catNum,
+        emoji,
         title: trimmed,
-        categorySeq: Number.isFinite(catNum) ? catNum : undefined,
-        newCategoryName: categoryNameHint && categoryNameHint.trim() ? categoryNameHint.trim() : undefined,
-        inviteMode,
-        inviteContact: inviteMode === 'invite' ? inviteContact.trim() : '',
+        status: status || 'VOTING',
+        googleEventId: null,
       };
-      const qs = new URLSearchParams();
-      for (const [key, value] of Object.entries(payload)) {
-        if (value != null && value !== '') qs.set(key, String(value));
-      }
 
-      const res = await apiFetch(`/api/topic?${qs.toString()}`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-      const json = await res.json().catch(() => ({} as any));
-      const seq = extractTopicSeqFromCreateResponse(json);
-
-      if (res.ok && seq != null) {
-        // 후보 등록 화면(/vote/[id]/candidates)은 추후 추가 예정.
-        Alert.alert('안건 등록 완료', `'${trimmed}' 안건이 등록되었습니다.`, [
-          { text: '확인', onPress: () => router.replace('/list') },
+      if (isEditMode && editTopicSeq != null) {
+        await updateTopic({
+          memberSeq,
+          topicSeq: editTopicSeq,
+          emoji,
+          title: trimmed,
+          googleEventId: null,
+        });
+        // Alert 버튼 콜백이 호출되지 않는 케이스(바깥 터치로 닫힘 등)를 대비해 즉시 목록으로 이동한다.
+        Alert.alert('수정 완료', `'${trimmed}' 안건이 수정되었습니다.`, [
+          { text: '확인', onPress: () => router.replace('/(tabs)/list') },
         ]);
-        return;
-      }
+        router.replace('/(tabs)/list');
+      } else {
+        const created = await createTopic(payload);
+        const createdSeq = Number.parseInt(created.topicSeq, 10);
+        const link = Number.isFinite(createdSeq)
+          ? Linking.createURL('/invite', { queryParams: { topicSeq: String(createdSeq) } })
+          : '';
 
-      Alert.alert(
-        '등록 실패',
-        typeof json?.message === 'string' && json.message.trim()
-          ? json.message.trim()
-          : `서버 응답 오류 (${res.status})`,
-      );
-    } catch (err: any) {
-      Alert.alert('등록 실패', String(err?.message ?? err));
+        if (inviteMode === 'invite' && link) {
+          Alert.alert('등록 완료', `'${trimmed}' 안건이 등록되었습니다.\n\n초대 링크를 공유해 보세요.`, [
+            { text: '링크 복사', onPress: () => copyToClipboard(link, '초대 링크를 클립보드에 복사했어요.') },
+            { text: '공유', onPress: () => shareText(link) },
+            { text: '확인', onPress: () => router.replace('/(tabs)/list') },
+          ]);
+        } else {
+          Alert.alert('등록 완료', `'${trimmed}' 안건이 등록되었습니다.`, [
+            { text: '확인', onPress: () => router.replace('/(tabs)/list') },
+          ]);
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      Alert.alert(isEditMode ? '수정 실패' : '등록 실패', msg);
     } finally {
       setSubmitting(false);
     }
   }
 
+  const screenTitle = isEditMode ? '안건 수정' : '안건 생성';
+  const submitLabel = isEditMode ? '안건 수정 저장' : '안건 등록';
+  const formDisabled = submitting || loadingDetail;
+  const submitButtonText = useMemo(() => {
+    if (!submitting) return submitLabel;
+    return isEditMode ? '수정 중…' : '등록 중…';
+  }, [isEditMode, submitLabel, submitting]);
+
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background }]}>
-      <AppHeader title="안건 생성" leftIconName="chevron-left" onPressLeft={() => router.back()} />
+      <AppHeader title={screenTitle} leftIconName="chevron-left" onPressLeft={() => router.back()} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -207,11 +288,19 @@ export default function CreateScreen() {
             </View>
           ) : null}
 
+          {loadingDetail ? (
+            <View style={styles.loadingRow} lightColor="transparent" darkColor="transparent">
+              <ActivityIndicator color={t.colors.tint} />
+              <Text style={{ color: t.colors.subtext, fontSize: 13 }}>안건 정보를 불러오는 중…</Text>
+            </View>
+          ) : null}
+
           <View style={styles.field} lightColor="transparent" darkColor="transparent">
             <Text style={[styles.label, { color: t.colors.text }]}>안건 제목</Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
+              editable={!formDisabled}
               style={[
                 styles.input,
                 {
@@ -225,6 +314,32 @@ export default function CreateScreen() {
               placeholderTextColor={t.colors.subtext}
               returnKeyType="next"
             />
+          </View>
+
+          <View style={styles.field} lightColor="transparent" darkColor="transparent">
+            <Text style={[styles.label, { color: t.colors.text }]}>이모지</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emojiRow}>
+              {EMOJI_OPTIONS.map((e) => {
+                const active = e === emoji;
+                return (
+                  <Pressable
+                    key={e}
+                    onPress={() => setEmoji(e)}
+                    disabled={formDisabled}
+                    style={[
+                      styles.emojiPill,
+                      {
+                        borderRadius: t.radius.pill,
+                        backgroundColor: active ? t.colors.tint : t.colors.muted,
+                        borderColor: active ? t.colors.tint : t.colors.border,
+                        opacity: formDisabled ? 0.6 : 1,
+                      },
+                    ]}>
+                    <Text style={{ fontSize: 22 }}>{e}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
 
           <View style={styles.field} lightColor="transparent" darkColor="transparent">
@@ -255,14 +370,14 @@ export default function CreateScreen() {
                   <Pressable
                     key={c.categorySeq}
                     onPress={() => setCategorySeq(String(c.categorySeq))}
-                    disabled={loadingCats}
+                    disabled={loadingCats || formDisabled}
                     style={[
                       styles.catPill,
                       {
                         borderRadius: t.radius.pill,
                         backgroundColor: active ? t.colors.tint : t.colors.muted,
                         borderColor: active ? t.colors.tint : t.colors.border,
-                        opacity: loadingCats ? 0.6 : 1,
+                        opacity: loadingCats || formDisabled ? 0.6 : 1,
                       },
                     ]}>
                     <Text
@@ -277,6 +392,9 @@ export default function CreateScreen() {
                 );
               })}
             </ScrollView>
+            {categoryLabel ? (
+              <Text style={[styles.help, { color: t.colors.subtext }]}>선택된 분야: {categoryLabel}</Text>
+            ) : null}
           </View>
 
           <View style={styles.field} lightColor="transparent" darkColor="transparent">
@@ -287,58 +405,58 @@ export default function CreateScreen() {
                 onPress={() => setInviteMode('invite')}
                 icon="user-plus"
                 label="초대"
+                disabled={formDisabled}
               />
               <ModePill
                 active={inviteMode === 'solo'}
                 onPress={() => setInviteMode('solo')}
                 icon="user"
                 label="혼자 모드"
+                disabled={formDisabled}
               />
             </View>
             <Text style={[styles.help, { color: t.colors.subtext }]}>
-              초대하면 참여자와 함께 후보·투표를 진행해요. 혼자 모드는 안건 등록 후 후보 등록 화면에서 링크를
-              추가할 수 있어요.
+              초대받은 사용자는 초대 링크로 들어온 뒤 회원가입/로그인을 먼저 진행해요. 로그인으로 MEMBER_SEQ를 확보한 다음
+              서버에 참여 요청(POST /api/topic/{'{topicSeq}'}/members/join)을 보내 TOPIC_MEMBER에 참여자가 등록돼요.
             </Text>
-          </View>
 
-          <View
-            style={[
-              styles.contactBox,
-              {
-                borderColor: t.colors.border,
-                backgroundColor: t.colors.surface,
-                borderRadius: t.radius.xl,
-              },
-            ]}
-            lightColor="transparent"
-            darkColor="transparent">
-            <Text style={{ fontSize: 12, fontWeight: '700', color: t.colors.text }}>
-              초대 링크 / 연락처 (선택)
-            </Text>
-            <TextInput
-              value={inviteContact}
-              onChangeText={setInviteContact}
-              editable={inviteMode === 'invite'}
-              style={[
-                styles.input,
-                {
-                  marginTop: 8,
-                  borderColor: t.colors.border,
-                  backgroundColor: t.colors.background,
-                  color: t.colors.text,
-                  borderRadius: t.radius.md,
-                  opacity: inviteMode === 'invite' ? 1 : 0.5,
-                },
-              ]}
-              placeholder="이메일 또는 휴대폰 번호"
-              placeholderTextColor={t.colors.subtext}
-              autoCapitalize="none"
-              keyboardType="default"
-            />
-            {categoryLabel ? (
-              <Text style={[styles.help, { color: t.colors.subtext, marginTop: 8 }]}>
-                선택된 분야: {categoryLabel}
-              </Text>
+            {isEditMode && inviteLink ? (
+              <View
+                style={[
+                  styles.inviteBox,
+                  {
+                    borderColor: t.colors.border,
+                    backgroundColor: t.colors.surface,
+                    borderRadius: t.radius.xl,
+                  },
+                ]}
+                lightColor="transparent"
+                darkColor="transparent">
+                <Text style={{ color: t.colors.text, fontSize: 12, fontWeight: '800' }}>초대 링크</Text>
+                <Text style={{ color: t.colors.subtext, fontSize: 12, marginTop: 6 }} numberOfLines={2}>
+                  {inviteLink}
+                </Text>
+                <View style={styles.inviteActions} lightColor="transparent" darkColor="transparent">
+                  <Pressable
+                    onPress={() => copyToClipboard(inviteLink, '초대 링크를 클립보드에 복사했어요.')}
+                    disabled={formDisabled}
+                    style={({ pressed }) => [
+                      styles.inviteBtn,
+                      { borderColor: t.colors.border, opacity: pressed ? 0.7 : 1 },
+                    ]}>
+                    <Text style={{ color: t.colors.text, fontWeight: '800', fontSize: 12 }}>복사</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => shareText(inviteLink)}
+                    disabled={formDisabled}
+                    style={({ pressed }) => [
+                      styles.inviteBtn,
+                      { borderColor: t.colors.border, opacity: pressed ? 0.7 : 1 },
+                    ]}>
+                    <Text style={{ color: t.colors.text, fontWeight: '800', fontSize: 12 }}>공유</Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : null}
           </View>
         </ScrollView>
@@ -346,17 +464,17 @@ export default function CreateScreen() {
         <View style={[styles.footer, { borderTopColor: t.colors.border, backgroundColor: t.colors.background }]}>
           <Pressable
             onPress={handleSubmit}
-            disabled={submitting}
+            disabled={formDisabled}
             style={[
               styles.submit,
               {
                 backgroundColor: t.colors.text,
                 borderRadius: t.radius.lg,
-                opacity: submitting ? 0.5 : 1,
+                opacity: formDisabled ? 0.5 : 1,
               },
             ]}>
             <Text style={{ color: t.colors.surface, fontSize: 15, fontWeight: '600' }}>
-              {submitting ? '등록 중…' : '안건 등록'}
+              {submitButtonText}
             </Text>
           </Pressable>
         </View>
@@ -365,42 +483,12 @@ export default function CreateScreen() {
   );
 }
 
-function ModePill({
-  active,
-  onPress,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onPress: () => void;
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-}) {
-  const t = useTokens();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.modePill,
-        {
-          borderRadius: t.radius.pill,
-          backgroundColor: active ? t.colors.tint : t.colors.muted,
-          borderColor: active ? t.colors.tint : t.colors.border,
-        },
-      ]}>
-      <Feather name={icon} size={14} color={active ? '#FFFFFF' : t.colors.text} />
-      <Text style={{ color: active ? '#FFFFFF' : t.colors.text, fontSize: 13, fontWeight: '700' }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   banner: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   field: { gap: 8 },
   fieldHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontSize: 14, fontWeight: '600' },
@@ -424,6 +512,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+  emojiRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  emojiPill: {
+    borderWidth: 1,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  statusPill: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
   modeRow: { flexDirection: 'row', gap: 8 },
   modePill: {
     flexDirection: 'row',
@@ -434,7 +536,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   help: { fontSize: 12, lineHeight: 18 },
-  contactBox: { borderWidth: 1, padding: 16 },
+  inviteBox: { borderWidth: 1, padding: 14, marginTop: 6 },
+  inviteActions: { marginTop: 10, flexDirection: 'row', gap: 8 },
+  inviteBtn: {
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
   footer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -446,3 +555,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+function ModePill({
+  active,
+  onPress,
+  icon,
+  label,
+  disabled,
+}: Readonly<{
+  active: boolean;
+  onPress: () => void;
+  icon: React.ComponentProps<typeof Feather>['name'];
+  label: string;
+  disabled: boolean;
+}>) {
+  const t = useTokens();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[
+        styles.modePill,
+        {
+          borderRadius: t.radius.pill,
+          backgroundColor: active ? t.colors.tint : t.colors.muted,
+          borderColor: active ? t.colors.tint : t.colors.border,
+          opacity: disabled ? 0.6 : 1,
+        },
+      ]}>
+      <Feather name={icon} size={14} color={active ? '#FFFFFF' : t.colors.text} />
+      <Text style={{ color: active ? '#FFFFFF' : t.colors.text, fontSize: 13, fontWeight: '700' }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}

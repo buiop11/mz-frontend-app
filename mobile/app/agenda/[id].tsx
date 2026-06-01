@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View } from '@/components/Themed';
 import {
   Candidate,
-  formatCandidatePrice,
+  formatCandidatePriceOrDate,
   getCandidateList,
   pickCandidateBySeq,
 } from '@/src/api/candidate';
@@ -627,7 +627,7 @@ function CandidateCard({
             </Pressable>
           </RNView>
         </RNView>
-        <Text style={styles.candPrice}>{formatCandidatePrice(candidate.price)}</Text>
+        <Text style={styles.candPrice}>{formatCandidatePriceOrDate(candidate)}</Text>
 
         {candidate.linkUrl ? (
           <Pressable

@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,10 +16,14 @@ import {
 
 import { Text, View } from '@/components/Themed';
 import {
+  buildPickDateIso,
   createCandidate,
   getCandidateDetail,
+  parsePickDateToForm,
   updateCandidate,
+  type CandidateFileItem,
 } from '@/src/api/candidate';
+import { isLocalImageUri, uploadFile } from '@/src/api/file';
 import { useAuth } from '@/src/auth/AuthProvider';
 import { AppHeader } from '@/src/ui/components/AppHeader';
 import { useTokens } from '@/src/ui/tokens';
@@ -58,6 +62,10 @@ export default function CandidateEditScreen() {
   const [linkUrl, setLinkUrl] = useState('');
   const [imgTab, setImgTab] = useState<ImgTab>('gallery');
   const [previewUri, setPreviewUri] = useState<string>('');
+  /** 사진첩에서 고른 로컬 파일 — 저장 시 /api/file/upload 후 filePath를 imageUrl로 사용 */
+  const [pickedFileUri, setPickedFileUri] = useState<string>('');
+  const [pickedWebFile, setPickedWebFile] = useState<File | null>(null);
+  const webFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadDetail = useCallback(async () => {
     if (!(isEdit && memberSeq != null)) {
@@ -69,11 +77,31 @@ export default function CandidateEditScreen() {
     try {
       const row = await getCandidateDetail(candidateSeq, memberSeq);
       setName(row.name);
-      setPriceText(row.price != null ? String(row.price) : '');
+      if (row.pickDate) {
+        setPdMode('date');
+        const { dateText: d, timeText: tm } = parsePickDateToForm(row.pickDate);
+        setDateText(d || todayIsoDate());
+        setTimeText(tm);
+        setPriceText('');
+      } else if (row.price != null) {
+        setPdMode('price');
+        setPriceText(String(row.price));
+        setDateText(todayIsoDate());
+        setTimeText('');
+      } else {
+        setPdMode('none');
+        setPriceText('');
+        setDateText(todayIsoDate());
+        setTimeText('');
+      }
       setInfo(row.info ?? '');
-      setImageUrl(row.imageUrl ?? '');
+      const existingImg = row.imageUrl ?? '';
+      setImageUrl(existingImg.startsWith('http') ? existingImg : '');
       setLinkUrl(row.linkUrl ?? '');
-      setPreviewUri(row.imageUrl ?? '');
+      setPreviewUri(existingImg);
+      setPickedFileUri('');
+      setPickedWebFile(null);
+      setImgTab(existingImg && !existingImg.startsWith('http') ? 'gallery' : existingImg ? 'url' : 'gallery');
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : '후보 정보를 불러오지 못했어요.');
     } finally {
@@ -84,6 +112,95 @@ export default function CandidateEditScreen() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  const applyPickedAsset = useCallback((uri: string, webFile?: File | null) => {
+    setPickedFileUri(uri);
+    setPickedWebFile(webFile ?? null);
+    setPreviewUri(uri);
+    setImageUrl('');
+    setImgTab('gallery');
+  }, []);
+
+  const pickFromGallery = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      webFileInputRef.current?.click();
+      return;
+    }
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('권한 필요', '사진첩 접근 권한이 필요해요.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.85,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const webFile = (asset as { file?: File }).file;
+      applyPickedAsset(asset.uri, webFile);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      Alert.alert(
+        '사진 선택 실패',
+        msg.includes('createPermissionHook')
+          ? '사진첩 기능을 사용할 수 없어요. URL 입력 탭을 이용해 주세요.'
+          : msg || '사진을 선택하지 못했어요.',
+      );
+    }
+  }, [applyPickedAsset]);
+
+  const onWebFileChange = useCallback(
+    (e: { target?: { files?: FileList | null } }) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+      const uri = URL.createObjectURL(file);
+      applyPickedAsset(uri, file);
+    },
+    [applyPickedAsset],
+  );
+
+  const clearImage = useCallback(() => {
+    setPreviewUri('');
+    setPickedFileUri('');
+    setPickedWebFile(null);
+    setImageUrl('');
+  }, []);
+
+  async function resolveImageForSave(): Promise<{
+    imageUrl: string | null;
+    fileList: CandidateFileItem[];
+  }> {
+    if ((pickedFileUri.trim() || pickedWebFile) && memberSeq != null) {
+      const uploaded = await uploadFile({
+        uri: pickedFileUri.trim() || pickedWebFile?.name || 'image.jpg',
+        webFile: pickedWebFile ?? undefined,
+        fileName: pickedWebFile?.name,
+        mimeType: pickedWebFile?.type,
+      });
+      return {
+        imageUrl: uploaded.filePath,
+        fileList: [
+          {
+            memberSeq,
+            fileOriginalName: uploaded.fileOriginalName,
+            fileSize: uploaded.fileSize,
+            filePath: uploaded.filePath,
+            fileExtensionName: uploaded.fileExtensionName,
+            delYn: false,
+          },
+        ],
+      };
+    }
+    const urlInput = imageUrl.trim();
+    if (urlInput) return { imageUrl: urlInput, fileList: [] };
+    if (previewUri.trim() && !isLocalImageUri(previewUri)) {
+      return { imageUrl: previewUri.trim(), fileList: [] };
+    }
+    return { imageUrl: null, fileList: [] };
+  }
 
   async function handleSave() {
     const trimmedName = name.trim();
@@ -96,38 +213,59 @@ export default function CandidateEditScreen() {
       return;
     }
 
-    const priceNum =
-      pdMode === 'price' && priceText.trim()
+    let price: number | null = null;
+    let pickDate: string | null = null;
+
+    if (pdMode === 'price') {
+      const priceNum = priceText.trim()
         ? Number.parseInt(priceText.replaceAll(',', ''), 10)
         : null;
-    if (pdMode === 'price' && priceText.trim() && (!Number.isFinite(priceNum) || (priceNum ?? 0) < 0)) {
-      setMessage('가격은 숫자로 입력해 주세요.');
-      return;
+      if (priceText.trim() && (!Number.isFinite(priceNum) || (priceNum ?? 0) < 0)) {
+        setMessage('가격은 숫자로 입력해 주세요.');
+        return;
+      }
+      price = priceNum;
+    } else if (pdMode === 'date') {
+      if (!dateText.trim()) {
+        setMessage('날짜를 입력해 주세요.');
+        return;
+      }
+      pickDate = buildPickDateIso(dateText, timeText);
+      if (!pickDate) {
+        setMessage('날짜 형식을 확인해 주세요. (YYYY-MM-DD, 시간 HH:MM)');
+        return;
+      }
     }
 
     setSubmitting(true);
     setMessage(null);
     try {
+      const { imageUrl: savedImageUrl, fileList } = await resolveImageForSave();
       const payload = {
         memberSeq,
         topicSeq,
         name: trimmedName,
         info: info.trim() || null,
-        price: priceNum,
-        imageUrl: (previewUri || imageUrl).trim() || null,
+        price,
+        pickDate,
+        imageUrl: savedImageUrl,
         linkUrl: linkUrl.trim() || null,
+        fileList,
+        fixed: false,
       };
 
       if (isEdit) {
-        await updateCandidate(candidateSeq, payload);
+        await updateCandidate(candidateSeq, { ...payload, candidateSeq });
         Alert.alert('저장 완료', '후보가 수정되었어요.', [
-          { text: '확인', onPress: () => router.back() },
+          { text: '확인', onPress: () => router.replace('/(tabs)/list') },
         ]);
+        router.replace('/(tabs)/list');
       } else {
         await createCandidate(payload);
         Alert.alert('등록 완료', '후보가 등록되었어요.', [
-          { text: '확인', onPress: () => router.back() },
+          { text: '확인', onPress: () => router.replace('/(tabs)/list') },
         ]);
+        router.replace('/(tabs)/list');
       }
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : '저장에 실패했어요.');
@@ -169,10 +307,19 @@ export default function CandidateEditScreen() {
           keyboardVerticalOffset={56}>
           <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
             <View style={styles.imgSection} lightColor="transparent" darkColor="transparent">
+              {Platform.OS === 'web' ? (
+                <input
+                  ref={webFileInputRef as React.RefObject<HTMLInputElement>}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={onWebFileChange}
+                />
+              ) : null}
               <Pressable
                 onPress={() => {
                   if (imgTab === 'url') return;
-                  Alert.alert('사진첩', '사진 업로드는 잠시 비활성화했어요. URL 입력을 사용해 주세요.');
+                  pickFromGallery();
                 }}
                 style={({ pressed }) => [
                   styles.imgUploadArea,
@@ -183,7 +330,7 @@ export default function CandidateEditScreen() {
                   <>
                     <Image source={{ uri: previewUri }} style={styles.imgPreview} />
                     <Pressable
-                      onPress={() => setPreviewUri('')}
+                      onPress={clearImage}
                       hitSlop={8}
                       style={({ pressed }) => [
                         styles.imgRemoveBtn,
@@ -213,9 +360,7 @@ export default function CandidateEditScreen() {
               {imgTab === 'gallery' ? (
                 <RNView style={styles.imgTabPanel}>
                   <Pressable
-                    onPress={() =>
-                      Alert.alert('사진첩', '사진 업로드는 잠시 비활성화했어요. URL 입력을 사용해 주세요.')
-                    }
+                    onPress={pickFromGallery}
                     style={({ pressed }) => [styles.galleryBtn, { opacity: pressed ? 0.9 : 1 }]}>
                     <Text style={{ fontSize: 18 }}>🖼️</Text>
                     <Text style={styles.galleryBtnText}>사진첩에서 선택</Text>
@@ -236,7 +381,12 @@ export default function CandidateEditScreen() {
                       autoCorrect={false}
                     />
                     <Pressable
-                      onPress={() => setPreviewUri(imageUrl.trim())}
+                      onPress={() => {
+                        const url = imageUrl.trim();
+                        setPickedFileUri('');
+                        setPickedWebFile(null);
+                        setPreviewUri(url);
+                      }}
                       style={({ pressed }) => [styles.fetchBtn, { opacity: pressed ? 0.9 : 1 }]}>
                       <Text style={styles.fetchBtnText}>불러오기</Text>
                     </Pressable>

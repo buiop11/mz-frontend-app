@@ -1,4 +1,14 @@
-import { apiFetch } from './fetch';
+import { apiFetch, messageFromApiJson } from './fetch';
+
+export type CandidateFileItem = {
+  memberSeq: number;
+  fileOriginalName: string;
+  fileSize: number;
+  filePath: string;
+  fileExtensionName: string;
+  delYn?: boolean;
+  attachingFileSeq?: number;
+};
 
 export type Candidate = {
   candidateSeq: number;
@@ -7,6 +17,7 @@ export type Candidate = {
   name: string;
   info: string | null;
   price: number | null;
+  pickDate: string | null;
   imageUrl: string | null;
   linkUrl: string | null;
   fixed: boolean;
@@ -36,6 +47,14 @@ function normalizeCandidate(row: any): Candidate | null {
         ? Number(priceRaw)
         : null;
 
+  const pickDateRaw = row?.pickDate ?? row?.pick_date ?? row?.PICK_DATE ?? null;
+  const pickDate =
+    typeof pickDateRaw === 'string' && pickDateRaw.trim()
+      ? pickDateRaw.trim()
+      : pickDateRaw instanceof Date
+        ? pickDateRaw.toISOString()
+        : null;
+
   return {
     candidateSeq,
     topicSeq,
@@ -48,6 +67,7 @@ function normalizeCandidate(row: any): Candidate | null {
     name,
     info: typeof row?.info === 'string' ? row.info.trim() || null : null,
     price: price != null && Number.isFinite(price) ? price : null,
+    pickDate,
     imageUrl:
       typeof row?.imageUrl === 'string' && row.imageUrl.trim() ? row.imageUrl.trim() : null,
     linkUrl: typeof row?.linkUrl === 'string' && row.linkUrl.trim() ? row.linkUrl.trim() : null,
@@ -72,10 +92,10 @@ export async function getCandidateDetail(
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(json?.message ?? `후보 조회 실패 (${res.status})`);
+    throw new Error(messageFromApiJson(json, `후보 조회 실패 (${res.status})`));
   }
   if (json?.code !== 'SUC001') {
-    throw new Error(json?.message ?? '후보 조회에 실패했습니다.');
+    throw new Error(messageFromApiJson(json, '후보 조회에 실패했습니다.'));
   }
 
   const row = parseCandidateDetailResponse(json);
@@ -89,20 +109,31 @@ export type SaveCandidateRequest = {
   name: string;
   info?: string | null;
   price?: number | null;
+  pickDate?: string | null;
   imageUrl?: string | null;
   linkUrl?: string | null;
+  fileList?: CandidateFileItem[];
+  candidateSeq?: number;
+  fixed?: boolean;
 };
 
 function buildSaveBody(data: SaveCandidateRequest) {
-  return {
+  const body: Record<string, unknown> = {
     memberSeq: data.memberSeq,
+    fileList: data.fileList ?? [],
     topicSeq: data.topicSeq,
     name: data.name.trim(),
     info: data.info?.trim() ? data.info.trim() : null,
     price: data.price != null && Number.isFinite(data.price) ? data.price : null,
     imageUrl: data.imageUrl?.trim() ? data.imageUrl.trim() : null,
     linkUrl: data.linkUrl?.trim() ? data.linkUrl.trim() : null,
+    pickDate: data.pickDate ?? null,
+    fixed: data.fixed ?? false,
   };
+  if (data.candidateSeq != null && Number.isFinite(data.candidateSeq)) {
+    body.candidateSeq = data.candidateSeq;
+  }
+  return body;
 }
 
 export async function createCandidate(data: SaveCandidateRequest): Promise<Candidate> {
@@ -114,10 +145,10 @@ export async function createCandidate(data: SaveCandidateRequest): Promise<Candi
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(json?.message ?? `후보 등록 실패 (${res.status})`);
+    throw new Error(messageFromApiJson(json, `후보 등록 실패 (${res.status})`));
   }
   if (json?.code && json.code !== 'SUC001') {
-    throw new Error(json?.message ?? '후보 등록에 실패했습니다.');
+    throw new Error(messageFromApiJson(json, '후보 등록에 실패했습니다.'));
   }
 
   const row = parseCandidateDetailResponse(json);
@@ -129,6 +160,7 @@ export async function createCandidate(data: SaveCandidateRequest): Promise<Candi
     name: data.name.trim(),
     info: data.info?.trim() || null,
     price: data.price ?? null,
+    pickDate: data.pickDate ?? null,
     imageUrl: data.imageUrl?.trim() || null,
     linkUrl: data.linkUrl?.trim() || null,
     fixed: false,
@@ -139,18 +171,19 @@ export async function updateCandidate(
   candidateSeq: number,
   data: SaveCandidateRequest,
 ): Promise<Candidate> {
-  const res = await apiFetch(`/api/candidate/${candidateSeq}`, {
+  // 안건 수정과 동일: PUT /api/candidate + body에 candidateSeq
+  const res = await apiFetch('/api/candidate', {
     method: 'PUT',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildSaveBody(data)),
+    body: JSON.stringify(buildSaveBody({ ...data, candidateSeq })),
   });
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(json?.message ?? `후보 수정 실패 (${res.status})`);
+    throw new Error(messageFromApiJson(json, `후보 수정 실패 (${res.status})`));
   }
   if (json?.code && json.code !== 'SUC001') {
-    throw new Error(json?.message ?? '후보 수정에 실패했습니다.');
+    throw new Error(messageFromApiJson(json, '후보 수정에 실패했습니다.'));
   }
 
   const row = parseCandidateDetailResponse(json);
@@ -162,9 +195,10 @@ export async function updateCandidate(
     name: data.name.trim(),
     info: data.info?.trim() || null,
     price: data.price ?? null,
+    pickDate: data.pickDate ?? null,
     imageUrl: data.imageUrl?.trim() || null,
     linkUrl: data.linkUrl?.trim() || null,
-    fixed: false,
+    fixed: data.fixed ?? false,
   };
 }
 
@@ -192,10 +226,10 @@ export async function getCandidateList(params: CandidateListRequest): Promise<Ca
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(json?.message ?? `후보 목록 조회 실패 (${res.status})`);
+    throw new Error(messageFromApiJson(json, `후보 목록 조회 실패 (${res.status})`));
   }
   if (json?.code !== 'SUC001') {
-    throw new Error(json?.message ?? '후보 목록 조회에 실패했습니다.');
+    throw new Error(messageFromApiJson(json, '후보 목록 조회에 실패했습니다.'));
   }
 
   return parseCandidateListResponse(json);
@@ -204,6 +238,118 @@ export async function getCandidateList(params: CandidateListRequest): Promise<Ca
 export function formatCandidatePrice(price: number | null): string {
   if (price == null || !Number.isFinite(price)) return '가격 미정';
   return `${price.toLocaleString('ko-KR')}원`;
+}
+
+function hasExplicitTimezone(raw: string): boolean {
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw.trim());
+}
+
+/** API 문자열에서 날짜·시각 숫자 추출 (입력한 시·분 유지) */
+function parsePickDateParts(pickDate: string): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+} | null {
+  const raw = pickDate.trim().replace(/\.\d{3}(?=(?:Z|[+-]|$))/, '');
+
+  // Z 또는 +09:00 이 있으면 로컬 시각으로 해석 (레거시 응답 대비)
+  if (hasExplicitTimezone(raw)) {
+    const dt = new Date(raw);
+    if (Number.isNaN(dt.getTime())) return null;
+    return {
+      year: dt.getFullYear(),
+      month: dt.getMonth() + 1,
+      day: dt.getDate(),
+      hour: dt.getHours(),
+      minute: dt.getMinutes(),
+    };
+  }
+
+  // LocalDateTime: 2026-06-04T19:00:00 — 적힌 숫자 그대로 사용
+  const wallClock =
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?/.exec(raw);
+  if (wallClock) {
+    return {
+      year: Number(wallClock[1]),
+      month: Number(wallClock[2]),
+      day: Number(wallClock[3]),
+      hour: Number(wallClock[4]),
+      minute: Number(wallClock[5]),
+    };
+  }
+
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return null;
+  return {
+    year: dt.getFullYear(),
+    month: dt.getMonth() + 1,
+    day: dt.getDate(),
+    hour: dt.getHours(),
+    minute: dt.getMinutes(),
+  };
+}
+
+export function formatCandidatePickDate(pickDate: string | null): string {
+  if (!pickDate?.trim()) return '날짜 미정';
+  const parts = parsePickDateParts(pickDate);
+  if (!parts) return pickDate;
+  const dt = new Date(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+  return dt.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** 후보 카드 — pickDate 우선, 없으면 price */
+export function formatCandidatePriceOrDate(candidate: Pick<Candidate, 'price' | 'pickDate'>): string {
+  if (candidate.pickDate?.trim()) return formatCandidatePickDate(candidate.pickDate);
+  return formatCandidatePrice(candidate.price);
+}
+
+/**
+ * YYYY-MM-DD + HH:MM → PICK_DATE (java.time.LocalDateTime)
+ * 백엔드는 타임존 없는 `2026-06-04T19:00:00` 형식만 받습니다. (+09:00 / Z 불가)
+ * toISOString()은 UTC로 바뀌므로 사용하지 않고, 입력한 시·분을 그대로 넣습니다.
+ */
+export function buildPickDateIso(dateText: string, timeText: string): string | null {
+  const d = dateText.trim();
+  if (!d) return null;
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  if (!dateMatch) return null;
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(timeText.trim() || '00:00');
+  const hour = timeMatch ? Number(timeMatch[1]) : 0;
+  const minute = timeMatch ? Number(timeMatch[2]) : 0;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  const yyyy = String(year).padStart(4, '0');
+  const mm = String(month).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  const hh = String(hour).padStart(2, '0');
+  const min = String(minute).padStart(2, '0');
+
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:00`;
+}
+
+export function parsePickDateToForm(pickDate: string | null): { dateText: string; timeText: string } {
+  if (!pickDate?.trim()) {
+    return { dateText: '', timeText: '' };
+  }
+  const parts = parsePickDateParts(pickDate);
+  if (!parts) {
+    return { dateText: '', timeText: '' };
+  }
+  return {
+    dateText: `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`,
+    timeText: `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`,
+  };
 }
 
 export type PickCandidateRequest = {

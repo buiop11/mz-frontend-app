@@ -5,7 +5,11 @@ import { useRouter } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import { GoogleLoginEnvMissingCard, GoogleLoginPanel } from '@/src/auth/GoogleLoginPanel';
 import { useAuth } from '@/src/auth/AuthProvider';
-import { GoogleAuthResult, getGoogleWebRedirectUri, isGoogleAuthEnvConfigured } from '@/src/auth/useGoogleAuth';
+import {
+  GoogleAuthResult,
+  getGoogleOAuthRedirectUris,
+  isGoogleAuthEnvConfigured,
+} from '@/src/auth/useGoogleAuth';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
@@ -62,11 +66,15 @@ export function AuthGate({ children }: Readonly<{ children: ReactNode }>) {
         {isGoogleAuthEnvConfigured() ? (
           <>
             <GoogleLoginPanel onAuthResult={handleAuthResult} statusText={loginStatus} />
-            {getGoogleWebRedirectUri() ? (
-              <Text selectable style={{ marginTop: 12, fontSize: 11, lineHeight: 16, color: t.colors.subtext }}>
-                Google Console 리디렉션 URI: {getGoogleWebRedirectUri()}
-              </Text>
-            ) : null}
+            <Text selectable style={{ marginTop: 12, fontSize: 11, lineHeight: 16, color: t.colors.subtext }}>
+              Google Console → 웹 애플리케이션 OAuth → 승인된 리디렉션 URI에 아래를 모두 등록하세요.{'\n'}
+              {getGoogleOAuthRedirectUris().join('\n')}
+              {'\n\n'}
+              iPhone + Expo Go: PC와 같은 Wi‑Fi, EXPO_PUBLIC_API_URL은 PC LAN IP(예: http://192.168.0.10)로
+              설정하세요. localhost는 폰에서 동작하지 않습니다.{'\n'}
+              로그인이 계속 실패하면 npx expo run:ios 로 개발 빌드를 쓰거나 iOS OAuth 클라이언트(번들 ID
+              com.anonymous.mobile)를 확인하세요.
+            </Text>
           </>
         ) : (
           <GoogleLoginEnvMissingCard />

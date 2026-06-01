@@ -150,11 +150,11 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        {/* 1) 상단 모드 표시 + 알림 벨 */}
-        <View style={styles.topBar} lightColor="transparent" darkColor="transparent">
-          <View style={styles.modePill} lightColor="transparent" darkColor="transparent">
-            <Text style={styles.modeText}>OURPICK · 2인 모드</Text>
-          </View>
+        {/* 1) 타이틀 + 알림 벨 */}
+        <View style={styles.headerRow} lightColor="transparent" darkColor="transparent">
+          <Text style={[styles.title, { color: t.colors.text, flex: 1 }]} numberOfLines={1}>
+            우리의 결정 <Text style={{ color: t.colors.tint }}>대기실</Text>
+          </Text>
           <Pressable
             style={({ pressed }) => [
               styles.bellButton,
@@ -168,11 +168,6 @@ export default function HomeScreen() {
             <View style={styles.bellDot} />
           </Pressable>
         </View>
-
-        {/* 2) 페이지 타이틀 */}
-        <Text style={[styles.title, { color: t.colors.text }]}>
-          우리의 결정 <Text style={{ color: t.colors.tint }}>대기실</Text>
-        </Text>
 
         {/* 3) 메인 배너 (도트 패턴 + CTA) */}
         <View style={[styles.hero, { backgroundColor: '#50AAA4' }]}>
@@ -329,10 +324,11 @@ function isOpenStatus(status: string) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: 16, paddingTop: 14, gap: 14, paddingBottom: 28 },
-  topBar: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
   modePill: {
     height: 28,

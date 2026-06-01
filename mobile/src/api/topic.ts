@@ -57,7 +57,7 @@ export const FALLBACK_TOPICS: TopicSummary[] = [
     candidateSeq: '-1',
     categoryName: '예시',
     title: '식당 최종 선택',
-    sub: '결정자: 아진 · 2024.05.02',
+    sub: 'Pick! ○○식당 · 2024.05.02',
     tag: 'Pick!',
     tagVariant: 'neutral',
     emoji: '💌',

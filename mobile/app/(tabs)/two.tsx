@@ -17,8 +17,8 @@ type DecisionLog = {
   agendaId: string;
   title: string;
   pick: string;
-  deciderName: string;
   summary: string;
+  isPicked: boolean;
   categoryLabel: string;
   categoryColor: string;
   date: Date;
@@ -40,7 +40,6 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-const DECIDER_NAMES = ['윤아', '민수', '지민', '서연', '현우'];
 
 export default function HistoryScreen() {
   const t = useTokens();
@@ -128,7 +127,7 @@ export default function HistoryScreen() {
         {mode === 'timeline' ? (
           <View style={styles.timelineWrap} lightColor="transparent" darkColor="transparent">
             <Text style={[styles.timelineGuide, { color: t.colors.subtext }]}>
-              날짜 · 낙찰 항목 · 결정자 순으로 기록돼요.
+              날짜 · 안건 · Pick 결과 순으로 기록돼요.
             </Text>
             {logs.map((item, index) => {
               const isLast = index === logs.length - 1;
@@ -155,11 +154,8 @@ export default function HistoryScreen() {
                       <Text style={[styles.timelineTitle, { color: t.colors.text }]} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <Text style={[styles.timelineMeta, { color: t.colors.subtext }]} numberOfLines={1}>
-                        결정자: {item.deciderName}
-                      </Text>
-                      <Text style={[styles.timelinePick, { color: t.colors.tabIconDefault }]} numberOfLines={1}>
-                        {item.summary}
+                      <Text style={[styles.timelinePick, { color: t.colors.subtext }]} numberOfLines={1}>
+                        {item.isPicked ? `Pick! ${item.pick}` : item.summary}
                       </Text>
                     </View>
                   </View>
@@ -264,16 +260,16 @@ function buildDecisionLogs(items: Agenda[]): DecisionLog[] {
     const chosen = pickCandidateLabel(agenda);
     const categoryLabel = catMap.get(agenda.categoryId) ?? '기타';
     const categoryColor = CATEGORY_COLORS[agenda.categoryId] ?? '#6D6A65';
-    const deciderName = DECIDER_NAMES[idx % DECIDER_NAMES.length];
     const summary = buildTimelineSummary(agenda);
+    const isPicked = agenda.status === 'PICKED' || Boolean(agenda.pickedCandidateId);
 
     return {
       id: `${agenda.id}-${formatDateKey(date)}`,
       agendaId: agenda.id,
       title: agenda.title,
       pick: chosen,
-      deciderName,
       summary,
+      isPicked,
       categoryLabel,
       categoryColor,
       date,
@@ -520,8 +516,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     lineHeight: 22,
   },
-  timelineMeta: { marginTop: 4, fontSize: 13, lineHeight: 18 },
-  timelinePick: { marginTop: 2, fontSize: 12, lineHeight: 17 },
+  timelinePick: { marginTop: 4, fontSize: 13, lineHeight: 18 },
   calendarWrap: { gap: 12 },
   calendarNav: {
     flexDirection: 'row',

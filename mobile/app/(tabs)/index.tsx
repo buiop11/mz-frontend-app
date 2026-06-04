@@ -45,7 +45,7 @@ export default function HomeScreen() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getMemberTopics({ memberSeq, currentPage: 1 });
+      const result = await getMemberTopics({ memberSeq, currentPage: 1, picked: false });
       // SUC001 응답이면 빈 리스트라도 그대로 화면에 반영한다 (예전엔 fromApi 가 false 면 더미가 무시돼서 빈 상태가 보였음).
       setTopics(result.list);
       setTotalCount(result.totalCount ?? result.list.length);

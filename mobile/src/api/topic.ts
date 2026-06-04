@@ -33,6 +33,7 @@ export type TopicListRequest = {
   memberSeq: number;
   currentPage?: number;
   categorySeq?: number;
+  picked?: boolean;
 };
 
 export const FALLBACK_TOPICS: TopicSummary[] = [
@@ -415,6 +416,7 @@ export async function getMemberTopics(params: TopicListRequest): Promise<TopicPa
     currentPage: String(params.currentPage ?? 1),
   });
   if (params.categorySeq != null) q.set('categorySeq', String(params.categorySeq));
+  if (typeof params.picked === 'boolean') q.set('picked', String(params.picked));
   const path = `/api/topic?${q.toString()}`;
 
   console.info('[topic] GET', path);

@@ -108,8 +108,63 @@ export async function getMemberCategories(params: CategoryListRequest): Promise<
   const arr = Array.isArray(json?.data) ? json.data : [];
   const list: Category[] = arr
     .map((row: any) => mapCategoryRow(row && typeof row === 'object' ? row : {}))
-    .filter((row): row is Category => row != null);
+    .filter((row: Category | null): row is Category => row != null);
 
   if (list.length === 0) return { list: FALLBACK_CATEGORIES, fromApi: false };
   return { list, fromApi: true };
+}
+
+export type CategorySaveRequest = {
+  memberSeq: number;
+  name: string;
+  emoji: string;
+};
+
+export type CategoryUpdateRequest = CategorySaveRequest & {
+  categorySeq: number;
+};
+
+async function parseCategoryMutationResponse(res: Response): Promise<void> {
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json?.message ?? `카테고리 처리 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? '카테고리 처리에 실패했습니다.');
+  }
+}
+
+export async function createCategory(data: CategorySaveRequest): Promise<void> {
+  const res = await apiFetch('/api/category', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  await parseCategoryMutationResponse(res);
+}
+
+export async function updateCategory(data: CategoryUpdateRequest): Promise<void> {
+  const res = await apiFetch('/api/category', {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  await parseCategoryMutationResponse(res);
+}
+
+export async function deleteCategory(memberSeq: number, categorySeq: number): Promise<void> {
+  const q = new URLSearchParams({
+    memberSeq: String(memberSeq),
+  });
+  const res = await apiFetch(`/api/category/${categorySeq}?${q.toString()}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+  await parseCategoryMutationResponse(res);
 }

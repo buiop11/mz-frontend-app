@@ -1,3 +1,5 @@
+import Feather from '@expo/vector-icons/Feather';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
@@ -8,6 +10,7 @@ import { useAuth } from '@/src/auth/AuthProvider';
 
 export default function MeScreen() {
   const t = useTokens();
+  const router = useRouter();
   const { user, logout } = useAuth();
 
   const onPressLogout = async () => {
@@ -42,6 +45,34 @@ export default function MeScreen() {
           <Text style={{ marginTop: 8, fontSize: 12, color: t.colors.subtext }}>
             알림, 파트너 초대(추후)
           </Text>
+
+          <Pressable
+            onPress={() => router.push('/category/manage')}
+            style={({ pressed }) => [
+              styles.menuRow,
+              {
+                borderColor: t.colors.border,
+                backgroundColor: t.colors.surface,
+                opacity: pressed ? 0.82 : 1,
+              },
+            ]}>
+            <View
+              style={[styles.menuIconWrap, { backgroundColor: 'rgba(122, 204, 192, 0.14)' }]}
+              lightColor="transparent"
+              darkColor="transparent">
+              <Feather name="folder" size={16} color={t.colors.tint} />
+            </View>
+            <View style={styles.menuTextCol} lightColor="transparent" darkColor="transparent">
+              <Text style={{ fontSize: 14, fontWeight: '700', color: t.colors.text }}>
+                카테고리 관리
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 11, color: t.colors.subtext }}>
+                분야 추가 · 수정 · 삭제
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={t.colors.tabIconDefault} />
+          </Pressable>
+
           <Pressable
             onPress={onPressLogout}
             style={({ pressed }) => [
@@ -72,6 +103,25 @@ export default function MeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { padding: 16, gap: 12 },
+  menuRow: {
+    marginTop: 14,
+    minHeight: 62,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  menuIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTextCol: { flex: 1 },
   logoutBtn: {
     marginTop: 14,
     alignSelf: 'flex-start',

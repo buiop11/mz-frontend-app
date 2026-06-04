@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -13,22 +13,31 @@ import {
 } from 'react-native';
 
 import { View } from '@/components/Themed';
-import { createCategory } from '@/src/api/category';
+import { updateCategory } from '@/src/api/category';
 import { useAuth } from '@/src/auth/AuthProvider';
 import { AppHeader } from '@/src/ui/components/AppHeader';
 import { useTokens } from '@/src/ui/tokens';
 
 import { EMOJI_OPTIONS } from './emojiOptions';
 
-export default function CategoryNewScreen() {
+export default function CategoryEditScreen() {
   const t = useTokens();
   const router = useRouter();
-  const params = useLocalSearchParams<{ returnTo?: string }>();
-  const returnToManage = params.returnTo === 'manage';
   const { user } = useAuth();
   const memberSeq = user?.memberSeq;
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState<string>('📌');
+  const params = useLocalSearchParams<{
+    categorySeq?: string;
+    name?: string;
+    emoji?: string;
+  }>();
+
+  const categorySeq = useMemo(() => {
+    const n = Number.parseInt(String(params.categorySeq ?? ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [params.categorySeq]);
+
+  const [name, setName] = useState(() => String(params.name ?? '').trim());
+  const [emoji, setEmoji] = useState(() => String(params.emoji ?? '📌').trim() || '📌');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -43,17 +52,23 @@ export default function CategoryNewScreen() {
       setMessage('로그인이 필요합니다. 다시 로그인해 주세요.');
       return;
     }
+    if (categorySeq == null) {
+      setMessage('수정할 카테고리를 찾을 수 없습니다.');
+      return;
+    }
     setSubmitting(true);
     setMessage(null);
     try {
-      await createCategory({ memberSeq, name: trimmed, emoji });
-      if (returnToManage) {
-        router.back();
-        return;
-      }
-      router.replace({ pathname: '/create', params: { categoryAdded: '1' } });
+      await updateCategory({
+        memberSeq,
+        categorySeq,
+        name: trimmed,
+        emoji,
+      });
+      router.back();
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : '저장에 실패했습니다.';
+      setMessage(msg);
     } finally {
       setSubmitting(false);
     }
@@ -62,7 +77,7 @@ export default function CategoryNewScreen() {
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background }]}>
       <AppHeader
-        title="카테고리 추가"
+        title="카테고리 수정"
         leftIconName="chevron-left"
         onPressLeft={() => router.back()}
       />
@@ -72,7 +87,7 @@ export default function CategoryNewScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={56}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.label, { color: t.colors.text }]}>새 카테고리 이름</Text>
+          <Text style={[styles.label, { color: t.colors.text }]}>카테고리 이름</Text>
           <TextInput
             value={name}
             onChangeText={setName}
@@ -107,15 +122,9 @@ export default function CategoryNewScreen() {
               },
             ]}>
             <Text style={styles.emojiBig}>{emoji}</Text>
-            <Text style={{ color: t.colors.text, fontSize: 13, fontWeight: '700' }}>
-              이모지 선택
-            </Text>
+            <Text style={{ color: t.colors.text, fontSize: 13, fontWeight: '700' }}>이모지 선택</Text>
             <Text style={{ color: t.colors.subtext, fontSize: 12 }}>눌러서 변경</Text>
           </Pressable>
-
-          <Text style={[styles.help, { color: t.colors.subtext }]}>
-            안건을 묶을 분야를 만들면 목록에서 필터링하기 쉬워요.
-          </Text>
 
           {message ? (
             <View
@@ -135,17 +144,17 @@ export default function CategoryNewScreen() {
         <View style={[styles.footer, { borderTopColor: t.colors.border, backgroundColor: t.colors.background }]}>
           <Pressable
             onPress={handleSave}
-            disabled={submitting}
+            disabled={submitting || categorySeq == null}
             style={[
               styles.submit,
               {
                 backgroundColor: t.colors.text,
                 borderRadius: t.radius.lg,
-                opacity: submitting ? 0.5 : 1,
+                opacity: submitting || categorySeq == null ? 0.5 : 1,
               },
             ]}>
             <Text style={{ color: t.colors.surface, fontSize: 15, fontWeight: '600' }}>
-              {submitting ? '저장 중…' : '카테고리 저장'}
+              {submitting ? '저장 중…' : '변경 사항 저장'}
             </Text>
           </Pressable>
         </View>
@@ -164,9 +173,7 @@ export default function CategoryNewScreen() {
               { backgroundColor: t.colors.surface, borderTopLeftRadius: 18, borderTopRightRadius: 18 },
             ]}>
             <RNView style={styles.modalHeader}>
-              <Text style={{ color: t.colors.text, fontSize: 15, fontWeight: '800' }}>
-                이모지 선택
-              </Text>
+              <Text style={{ color: t.colors.text, fontSize: 15, fontWeight: '800' }}>이모지 선택</Text>
               <Pressable onPress={() => setEmojiOpen(false)} hitSlop={10}>
                 <Text style={{ color: t.colors.tint, fontSize: 13, fontWeight: '800' }}>닫기</Text>
               </Pressable>
@@ -221,7 +228,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
   },
-  help: { fontSize: 12, lineHeight: 18 },
   banner: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, marginTop: 4 },
   footer: {
     paddingHorizontal: 16,

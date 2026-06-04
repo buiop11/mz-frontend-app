@@ -205,17 +205,24 @@ export default function ListScreen() {
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background }]}>
       <RNView style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.title, { color: t.colors.text }]}>목록</Text>
-        <Pressable
-          onPress={() => router.push('/category/new')}
-          hitSlop={10}
-          style={({ pressed }) => [styles.headerAdd, { opacity: pressed ? 0.7 : 1 }]}>
-          <Feather name="plus" size={20} color={t.colors.tint} />
-        </Pressable>
+        <Text style={[styles.title, { color: t.colors.text }]}>안건 전체 목록</Text>
       </RNView>
 
       <RNView style={styles.catBlock}>
-        <Text style={[styles.catLabel, { color: t.colors.subtext }]}>분야</Text>
+        <RNView style={styles.catLabelRow}>
+          <Text style={[styles.catLabel, { color: t.colors.subtext }]}>카테고리</Text>
+          <Pressable
+            onPress={() => router.push('/category/manage')}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="카테고리 관리"
+            style={({ pressed }) => [
+              styles.catManageBtn,
+              { borderColor: t.colors.border, opacity: pressed ? 0.72 : 1 },
+            ]}>
+            <Feather name="settings" size={14} color={t.colors.subtext} />
+          </Pressable>
+        </RNView>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -343,23 +350,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  headerAdd: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(122, 204, 192, 0.12)',
-  },
   catBlock: {
     paddingTop: 4,
     paddingBottom: 2,
   },
-  catLabel: {
+  catLabelRow: {
     paddingHorizontal: 16,
     marginBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  catLabel: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  catManageBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(122, 204, 192, 0.08)',
   },
   catScroll: {
     flexGrow: 0,

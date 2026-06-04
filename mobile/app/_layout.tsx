@@ -59,6 +59,8 @@ function RootLayoutNav() {
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: '알림' }} />
             <Stack.Screen name="create" options={{ headerShown: false, title: '안건 생성' }} />
             <Stack.Screen name="category/new" options={{ headerShown: false, title: '카테고리 생성' }} />
+            <Stack.Screen name="category/manage" options={{ headerShown: false, title: '카테고리 관리' }} />
+            <Stack.Screen name="category/edit" options={{ headerShown: false, title: '카테고리 수정' }} />
             <Stack.Screen name="candidate/edit" options={{ headerShown: false, title: '후보 등록/수정' }} />
             <Stack.Screen name="agenda/[id]" options={{ headerShown: false, title: '안건 상세' }} />
             <Stack.Screen name="calendar/[id]" options={{ headerShown: false, title: '일정 상세' }} />

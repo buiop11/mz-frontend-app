@@ -79,7 +79,7 @@ export default function HistoryScreen() {
           styles.topBar,
           { paddingTop: insets.top + 10, borderBottomColor: t.colors.border, backgroundColor: t.colors.surface },
         ]}>
-        <Text style={[styles.topTitle, { color: t.colors.text }]}>결정 로그</Text>
+        <Text style={[styles.topTitle, { color: t.colors.text }]}>Pick 로그</Text>
         <View style={[styles.toggleWrap, { borderColor: t.colors.border }]}>
           <Pressable
             onPress={() => setMode('timeline')}

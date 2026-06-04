@@ -125,11 +125,26 @@ export type CategoryUpdateRequest = CategorySaveRequest & {
 };
 
 async function parseCategoryMutationResponse(res: Response): Promise<void> {
-  const json = await res.json().catch(() => ({}));
+  const raw = await res.text().catch(() => '');
+  let json: any = null;
+  if (raw.trim()) {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      // 삭제 API가 본문 없이 200/204를 반환할 수 있으므로 성공 상태에서는 파싱 실패를 무시한다.
+      if (res.ok) return;
+    }
+  }
+
   if (!res.ok) {
     throw new Error(json?.message ?? `카테고리 처리 실패 (${res.status})`);
   }
-  if (json?.code !== 'SUC001') {
+
+  // 성공 응답이지만 본문이 비어 있는 경우(특히 DELETE)도 정상 처리한다.
+  if (!raw.trim() || res.status === 204) return;
+
+  // 본문에 code가 있을 때만 SUC001 계약을 검증한다.
+  if (json?.code != null && json.code !== 'SUC001') {
     throw new Error(json?.message ?? '카테고리 처리에 실패했습니다.');
   }
 }
@@ -159,12 +174,11 @@ export async function updateCategory(data: CategoryUpdateRequest): Promise<void>
 }
 
 export async function deleteCategory(memberSeq: number, categorySeq: number): Promise<void> {
-  const q = new URLSearchParams({
-    memberSeq: String(memberSeq),
-  });
+  const q = new URLSearchParams({ memberSeq: String(memberSeq) });
+  console.info('[category] DELETE', `/api/category/${categorySeq}?${q.toString()}`);
   const res = await apiFetch(`/api/category/${categorySeq}?${q.toString()}`, {
     method: 'DELETE',
-    headers: { Accept: 'application/json' },
+    headers: { Accept: '*/*' },
   });
   await parseCategoryMutationResponse(res);
 }

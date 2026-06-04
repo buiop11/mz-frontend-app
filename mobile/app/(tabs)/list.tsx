@@ -154,9 +154,14 @@ export default function ListScreen() {
         <Card border background="surface" radius={18} padding={0} style={styles.topicCard}>
           <RNView style={styles.topicTop}>
             <RNView style={styles.topicTextCol}>
-              <Text style={[styles.topicTitle, { color: t.colors.text }]} numberOfLines={1}>
-                {tp.title}
-              </Text>
+              <RNView style={styles.topicTitleRow}>
+                <RNView style={[styles.topicEmojiWrap, { backgroundColor: t.colors.muted }]}>
+                  <Text style={styles.topicEmoji}>{tp.emoji || '🗳️'}</Text>
+                </RNView>
+                <Text style={[styles.topicTitle, { color: t.colors.text }]} numberOfLines={1}>
+                  {tp.title}
+                </Text>
+              </RNView>
               <Text style={[styles.topicSub, { color: t.colors.subtext }]} numberOfLines={1}>
                 {buildTopicMeta(tp)}
               </Text>
@@ -448,6 +453,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   topicTextCol: { flex: 1, paddingRight: 8 },
+  topicTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  topicEmojiWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topicEmoji: { fontSize: 14 },
   topicTitle: { fontSize: 15, fontWeight: '800' },
   topicSub: { marginTop: 5, fontSize: 12, lineHeight: 17 },
   statusBadge: {

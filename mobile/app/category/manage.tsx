@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -79,7 +80,37 @@ export default function CategoryManageScreen() {
 
   const confirmDelete = useCallback(
     (item: Category) => {
-      if (memberSeq == null) return;
+      if (memberSeq == null) {
+        Alert.alert('삭제 실패', '로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+        return;
+      }
+
+      const runDelete = async () => {
+        setDeletingSeq(item.categorySeq);
+        try {
+          await deleteCategory(memberSeq, item.categorySeq);
+          await loadCategories();
+        } catch (e: unknown) {
+          Alert.alert(
+            '삭제 실패',
+            e instanceof Error ? e.message : '카테고리를 삭제하지 못했어요.',
+          );
+        } finally {
+          setDeletingSeq(null);
+        }
+      };
+
+      // RN Web에서 Alert 3버튼 다이얼로그가 안정적으로 동작하지 않는 경우가 있어 confirm으로 폴백한다.
+      if (Platform.OS === 'web') {
+        const ok = globalThis.confirm?.(
+          `「${item.name}」 분야를 삭제할까요?\n연결된 안건이 있으면 삭제되지 않을 수 있어요.`,
+        );
+        if (ok) {
+          void runDelete();
+        }
+        return;
+      }
+
       Alert.alert(
         '카테고리 삭제',
         `「${item.name}」 분야를 삭제할까요?\n연결된 안건이 있으면 삭제되지 않을 수 있어요.`,
@@ -88,19 +119,8 @@ export default function CategoryManageScreen() {
           {
             text: '삭제',
             style: 'destructive',
-            onPress: async () => {
-              setDeletingSeq(item.categorySeq);
-              try {
-                await deleteCategory(memberSeq, item.categorySeq);
-                await loadCategories();
-              } catch (e: unknown) {
-                Alert.alert(
-                  '삭제 실패',
-                  e instanceof Error ? e.message : '카테고리를 삭제하지 못했어요.',
-                );
-              } finally {
-                setDeletingSeq(null);
-              }
+            onPress: () => {
+              void runDelete();
             },
           },
         ],

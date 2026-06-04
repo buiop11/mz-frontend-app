@@ -286,7 +286,7 @@ export default function CandidateEditScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: '#F2EFE9' }]}>
+    <View style={[styles.root, { backgroundColor: t.colors.background }]}>
       <AppHeader
         title={isEdit ? '후보 수정' : '후보 등록'}
         leftIconName="chevron-left"
@@ -336,7 +336,7 @@ export default function CandidateEditScreen() {
                         styles.imgRemoveBtn,
                         { opacity: pressed ? 0.8 : 1 },
                       ]}>
-                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>✕</Text>
+                      <Text style={{ color: '#F2F2F2', fontSize: 14, fontWeight: '700' }}>✕</Text>
                     </Pressable>
                   </>
                 ) : (
@@ -374,7 +374,7 @@ export default function CandidateEditScreen() {
                     <TextInput
                       value={imageUrl}
                       onChangeText={setImageUrl}
-                      style={[styles.urlInput, { color: '#2C2820' }]}
+                      style={[styles.urlInput, { color: '#F2F2F2' }]}
                       placeholder="https://..."
                       placeholderTextColor="#A09890"
                       autoCapitalize="none"
@@ -486,7 +486,7 @@ export default function CandidateEditScreen() {
 
             {message ? (
               <View style={styles.banner} lightColor="transparent" darkColor="transparent">
-                <Text style={{ color: '#2C2820', fontSize: 12 }}>{message}</Text>
+                <Text style={{ color: '#F2F2F2', fontSize: 12 }}>{message}</Text>
               </View>
             ) : null}
 
@@ -505,10 +505,10 @@ export default function CandidateEditScreen() {
                 { opacity: submitting ? 0.55 : pressed ? 0.92 : 1 },
               ]}>
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#121212" />
               ) : (
                 <>
-                  <Feather name="check-circle" size={18} color="#fff" />
+                  <Feather name="check-circle" size={18} color="#121212" />
                   <Text style={styles.submitBtnText}>{isEdit ? '후보 수정' : '후보 등록'}</Text>
                 </>
               )}
@@ -584,16 +584,16 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   formScroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 140, gap: 20 },
   imgSection: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.06)',
+    borderColor: '#2F2F2F',
     overflow: 'hidden',
   },
   imgUploadArea: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#252525',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -606,14 +606,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#fff',
+    backgroundColor: '#2A2A2A',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.12)',
+    borderColor: '#3A3A3A',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  imgUploadLabel: { fontSize: 13, color: '#6B6560', textAlign: 'center', lineHeight: 19 },
+  imgUploadLabel: { fontSize: 13, color: '#BDBDBD', textAlign: 'center', lineHeight: 19 },
   imgRemoveBtn: {
     position: 'absolute',
     right: 8,
@@ -625,71 +625,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  imgTabs: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(44,40,32,0.06)' },
+  imgTabs: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#2F2F2F' },
   imgTab: { flex: 1, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' },
-  imgTabActive: { backgroundColor: 'rgba(126,186,181,0.08)', borderBottomWidth: 2, borderBottomColor: '#7EBAB5' },
+  imgTabActive: { backgroundColor: 'rgba(42,90,85,0.28)', borderBottomWidth: 2, borderBottomColor: '#2A5A55' },
   imgTabText: { fontSize: 12, color: '#A09890', fontWeight: '600' },
-  imgTabTextActive: { color: '#4E9A94' },
+  imgTabTextActive: { color: '#D4B483' },
   imgTabPanel: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14 },
   galleryBtn: {
     width: '100%',
     paddingVertical: 13,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#C8E8E6',
+    borderColor: '#2A5A55',
     borderStyle: 'dashed',
-    backgroundColor: 'rgba(126,186,181,0.08)',
+    backgroundColor: 'rgba(42,90,85,0.2)',
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  galleryBtnText: { fontSize: 14, fontWeight: '700', color: '#4E9A94' },
-  fieldLabelSmall: { fontSize: 12, color: '#6B6560', marginBottom: 6 },
+  galleryBtnText: { fontSize: 14, fontWeight: '700', color: '#D4B483' },
+  fieldLabelSmall: { fontSize: 12, color: '#BDBDBD', marginBottom: 6 },
   urlFetchRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   urlInput: {
     flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#252525',
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.12)',
+    borderColor: '#3A3A3A',
   },
   fetchBtn: {
     paddingHorizontal: 14,
     height: 44,
     borderRadius: 10,
-    backgroundColor: 'rgba(126,186,181,0.12)',
+    backgroundColor: 'rgba(42,90,85,0.25)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#C8E8E6',
+    borderColor: '#2A5A55',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fetchBtnText: { fontSize: 12, fontWeight: '800', color: '#4E9A94' },
+  fetchBtnText: { fontSize: 12, fontWeight: '800', color: '#D4B483' },
 
   sectionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.06)',
+    borderColor: '#2F2F2F',
     paddingVertical: 18,
     paddingHorizontal: 16,
     gap: 16,
   },
   field: { gap: 7 },
-  fieldLabel: { fontSize: 12, color: '#6B6560', letterSpacing: 0.2 },
+  fieldLabel: { fontSize: 12, color: '#BDBDBD', letterSpacing: 0.2 },
   req: { color: '#D9534F', fontSize: 14, fontWeight: '800' },
   inputBase: {
     width: '100%',
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#2C2820',
-    backgroundColor: '#F2EFE9',
+    color: '#F2F2F2',
+    backgroundColor: '#252525',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.12)',
+    borderColor: '#3A3A3A',
     borderRadius: 10,
   },
   textArea: { minHeight: 84, lineHeight: 22 },
@@ -698,28 +698,28 @@ const styles = StyleSheet.create({
   inputHasIcon: { paddingLeft: 38 },
   pdToggle: {
     flexDirection: 'row',
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#252525',
     borderRadius: 10,
     padding: 3,
     gap: 2,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.06)',
+    borderColor: '#2F2F2F',
   },
   pdTab: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  pdTabActive: { backgroundColor: '#fff' },
-  pdTabText: { fontSize: 13, color: '#6B6560', fontWeight: '700' },
-  pdTabTextActive: { color: '#4E9A94' },
+  pdTabActive: { backgroundColor: '#1E1E1E' },
+  pdTabText: { fontSize: 13, color: '#9B9B9B', fontWeight: '700' },
+  pdTabTextActive: { color: '#D4B483' },
   dateRow: { flexDirection: 'row', gap: 8 },
   dateInput: { flex: 1 },
   fieldHint: { fontSize: 11, color: '#A09890', lineHeight: 16, marginTop: 6 },
-  divider: { height: 1, backgroundColor: 'rgba(44,40,32,0.06)', marginHorizontal: -16 },
+  divider: { height: 1, backgroundColor: '#2F2F2F', marginHorizontal: -16 },
 
   help: { fontSize: 12 },
   metaText: { fontSize: 11, color: '#A09890', paddingHorizontal: 2 },
   banner: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(44,40,32,0.12)',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#3A3A3A',
+    backgroundColor: '#1E1E1E',
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -732,17 +732,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 18,
-    backgroundColor: 'rgba(242,239,233,0.92)',
+    backgroundColor: 'rgba(18,18,18,0.94)',
   },
   submitBtn: {
     width: '100%',
     height: 54,
     borderRadius: 14,
-    backgroundColor: '#4E9A94',
+    backgroundColor: '#D4B483',
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.4 },
+  submitBtnText: { fontSize: 16, fontWeight: '800', color: '#121212', letterSpacing: 0.2 },
 });

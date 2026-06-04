@@ -41,7 +41,7 @@ export default function CalendarScreen() {
           {days.map((n) => {
             const isToday = n === today;
             const bg = isToday ? t.colors.tint : t.colors.surface;
-            const txt = isToday ? '#FFFFFF' : t.colors.text;
+            const txt = isToday ? t.colors.gold : t.colors.text;
             const weight: '600' | '400' = isToday ? '600' : '400';
             const fill = n === 14 ? t.colors.muted : bg;
 
@@ -70,7 +70,7 @@ export default function CalendarScreen() {
               <Link key={a.id} href={`/calendar/${a.id}`} asChild>
                 <Pressable>
                   <Card border background="surface" radius={t.radius.lg} padding={14} style={styles.eventRow}>
-                    <View style={[styles.dot, { backgroundColor: a.status === 'VOTING' ? t.colors.tint : t.colors.danger }]} />
+            <View style={[styles.dot, { backgroundColor: a.status === 'VOTING' ? t.colors.gold : t.colors.danger }]} />
                     <View style={{ flex: 1, gap: 4 }} lightColor="transparent" darkColor="transparent">
                       <Text style={{ fontSize: 15, fontWeight: '600', color: t.colors.text }} numberOfLines={1}>
                         {a.title}

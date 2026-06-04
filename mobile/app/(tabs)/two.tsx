@@ -33,10 +33,10 @@ type CalendarCell = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  wedding: '#1D9E75',
-  meal: '#D85A30',
-  buy: '#534AB7',
-  date: '#378ADD',
+  wedding: '#2A5A55',
+  meal: '#B08450',
+  buy: '#6E5A9A',
+  date: '#4F7A8A',
 };
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -79,7 +79,9 @@ export default function HistoryScreen() {
           styles.topBar,
           { paddingTop: insets.top + 10, borderBottomColor: t.colors.border, backgroundColor: t.colors.surface },
         ]}>
-        <Text style={[styles.topTitle, { color: t.colors.text }]}>Pick 로그</Text>
+        <Text style={[styles.topTitle, { color: t.colors.text }]}>
+          Pick <Text style={{ color: t.colors.gold }}>로그</Text>
+        </Text>
         <View style={[styles.toggleWrap, { borderColor: t.colors.border }]}>
           <Pressable
             onPress={() => setMode('timeline')}
@@ -88,11 +90,11 @@ export default function HistoryScreen() {
               mode === 'timeline' && styles.toggleButtonActive,
               { opacity: pressed ? 0.82 : 1 },
             ]}>
-            <Feather name="list" size={15} color={mode === 'timeline' ? '#0F6E56' : t.colors.tabIconDefault} />
+            <Feather name="list" size={15} color={mode === 'timeline' ? t.colors.gold : t.colors.tabIconDefault} />
             <Text
               style={[
                 styles.toggleText,
-                { color: mode === 'timeline' ? '#0F6E56' : t.colors.subtext },
+                { color: mode === 'timeline' ? t.colors.gold : t.colors.subtext },
               ]}>
               타임라인
             </Text>
@@ -107,12 +109,12 @@ export default function HistoryScreen() {
             <Feather
               name="calendar"
               size={15}
-              color={mode === 'calendar' ? '#0F6E56' : t.colors.tabIconDefault}
+              color={mode === 'calendar' ? t.colors.gold : t.colors.tabIconDefault}
             />
             <Text
               style={[
                 styles.toggleText,
-                { color: mode === 'calendar' ? '#0F6E56' : t.colors.subtext },
+                { color: mode === 'calendar' ? t.colors.gold : t.colors.subtext },
               ]}>
               캘린더
             </Text>
@@ -238,6 +240,7 @@ export default function HistoryScreen() {
                 selectedDateKey,
                 selectedDayLogs,
                 emptyColor: t.colors.tabIconDefault,
+                  accentColor: t.colors.gold,
                 borderColor: t.colors.border,
                 textColor: t.colors.text,
                 subColor: t.colors.subtext,
@@ -376,6 +379,7 @@ function renderDayCardContent({
   selectedDateKey,
   selectedDayLogs,
   emptyColor,
+  accentColor,
   borderColor,
   textColor,
   subColor,
@@ -384,6 +388,7 @@ function renderDayCardContent({
   selectedDateKey: string | null;
   selectedDayLogs: DecisionLog[];
   emptyColor: string;
+  accentColor: string;
   borderColor: string;
   textColor: string;
   subColor: string;
@@ -409,7 +414,8 @@ function renderDayCardContent({
                 {ev.title}
               </Text>
               <Text style={[styles.dayLogSub, { color: subColor }]} numberOfLines={1}>
-                Pick! {ev.pick}
+                <Text style={{ color: accentColor }}>Pick! </Text>
+                {ev.pick}
               </Text>
             </View>
             <Feather name="chevron-right" size={16} color={emptyColor} />
@@ -439,7 +445,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 4,
-    backgroundColor: '#F6F8F7',
+    backgroundColor: '#252525',
   },
   toggleButton: {
     flex: 1,
@@ -451,7 +457,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   toggleButtonActive: {
-    backgroundColor: '#E1F5EE',
+    backgroundColor: '#2A5A55',
   },
   toggleText: {
     fontSize: 13,
@@ -556,14 +562,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   calendarDaySelected: {
-    backgroundColor: '#E1F5EE',
+    backgroundColor: '#2A5A55',
   },
   calendarDayText: {
     fontSize: 13,
     fontWeight: '500',
   },
   calendarTodayText: {
-    color: '#0F6E56',
+    color: '#D4B483',
     fontWeight: '800',
   },
   eventDots: {

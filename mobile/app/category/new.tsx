@@ -139,12 +139,12 @@ export default function CategoryNewScreen() {
             style={[
               styles.submit,
               {
-                backgroundColor: t.colors.text,
+                backgroundColor: t.colors.gold,
                 borderRadius: t.radius.lg,
                 opacity: submitting ? 0.5 : 1,
               },
             ]}>
-            <Text style={{ color: t.colors.surface, fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: t.colors.ctaText, fontSize: 15, fontWeight: '700' }}>
               {submitting ? '저장 중…' : '카테고리 저장'}
             </Text>
           </Pressable>

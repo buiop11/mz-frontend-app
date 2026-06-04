@@ -168,16 +168,20 @@ export default function CategoryManageScreen() {
               onPress={() => openEdit(item)}
               style={({ pressed }) => [
                 styles.actionBtn,
-                { borderColor: t.colors.border, opacity: pressed || busy ? 0.7 : 1 },
+                {
+                  borderColor: '#2A5A55',
+                  backgroundColor: '#2A5A55',
+                  opacity: pressed || busy ? 0.7 : 1,
+                },
               ]}>
-              <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 12 }}>수정</Text>
+              <Text style={{ color: t.colors.gold, fontWeight: '700', fontSize: 12 }}>수정</Text>
             </Pressable>
             <Pressable
               disabled={busy}
               onPress={() => confirmDelete(item)}
               style={({ pressed }) => [styles.deleteBtn, { opacity: pressed || busy ? 0.7 : 1 }]}>
               {busy ? (
-                <ActivityIndicator size="small" color="#D65041" />
+                <ActivityIndicator size="small" color="#DE6C5A" />
               ) : (
                 <Text style={styles.deleteText}>삭제</Text>
               )}
@@ -212,8 +216,8 @@ export default function CategoryManageScreen() {
               opacity: pressed ? 0.86 : 1,
             },
           ]}>
-          <RNView style={[styles.addIconWrap, { backgroundColor: 'rgba(122, 204, 192, 0.16)' }]}>
-            <Feather name="plus" size={18} color={t.colors.tint} />
+          <RNView style={[styles.addIconWrap, { backgroundColor: '#2A5A55' }]}>
+            <Feather name="plus" size={18} color={t.colors.gold} />
           </RNView>
           <RNView style={styles.addTextCol}>
             <Text style={[styles.addTitle, { color: t.colors.text }]}>새 카테고리 추가</Text>
@@ -297,11 +301,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#F4B6AE',
-    backgroundColor: '#FFF7F6',
+    borderColor: '#2A5A55',
+    backgroundColor: '#2A5A55',
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 48,
   },
-  deleteText: { color: '#D65041', fontSize: 12, fontWeight: '800' },
+  deleteText: { color: '#D4B483', fontSize: 12, fontWeight: '800' },
 });

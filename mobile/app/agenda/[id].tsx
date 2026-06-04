@@ -30,9 +30,9 @@ import { Comment, createComment, getCommentList } from '@/src/api/comment';
 import { getTopicDetail, isPickStatus, type TopicDetail } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
 
-const PICK_COLOR = '#D85A30';
-const PICK_DONE = '#1D9E75';
-const CARD_BACKGROUNDS = ['#E1F5EE', '#EEEDFE', '#FAEEDA', '#F2EFE9'];
+const PICK_COLOR = '#D4B483';
+const PICK_DONE = '#2A5A55';
+const CARD_BACKGROUNDS = ['#223331', '#2A2A34', '#342E24', '#262626'];
 
 export default function AgendaDetailScreen() {
   const router = useRouter();
@@ -359,7 +359,7 @@ export default function AgendaDetailScreen() {
           <Pressable
             onPress={openCandidateCreate}
             style={({ pressed }) => [styles.addBtn, { opacity: pressed ? 0.88 : 1 }]}>
-            <Feather name="plus" size={13} color="#fff" />
+            <Feather name="plus" size={13} color="#121212" />
             <Text style={styles.addBtnText}>후보 추가</Text>
           </Pressable>
         </RNView>
@@ -392,7 +392,7 @@ export default function AgendaDetailScreen() {
           <RNView style={styles.voteBar}>
             <Text style={styles.voteTitle}>참여자 투표 현황</Text>
             <RNView style={styles.voteMember}>
-              <RNView style={[styles.voteAvatar, { backgroundColor: '#E1F5EE' }]}>
+              <RNView style={[styles.voteAvatar, { backgroundColor: '#2A5A55' }]}>
                 <Text style={styles.voteAvatarText}>나</Text>
               </RNView>
               <Text style={styles.voteName}>{user?.name ?? '나'}</Text>
@@ -530,7 +530,7 @@ export default function AgendaDetailScreen() {
                 disabled={picking}
                 style={({ pressed }) => [styles.ovConfirm, { opacity: pressed || picking ? 0.9 : 1 }]}>
                 {picking ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="#121212" size="small" />
                 ) : (
                   <Text style={styles.ovConfirmText}>확인</Text>
                 )}
@@ -622,7 +622,7 @@ function CandidateCard({
               onPress={onEdit}
               hitSlop={8}
               style={({ pressed }) => [styles.editBtn, { opacity: pressed ? 0.82 : 1 }]}>
-              <Feather name="edit-2" size={12} color="#0F6E56" />
+              <Feather name="edit-2" size={12} color="#D4B483" />
               <Text style={styles.editBtnText}>수정</Text>
             </Pressable>
           </RNView>
@@ -633,9 +633,9 @@ function CandidateCard({
           <Pressable
             onPress={onOpenLink}
             style={({ pressed }) => [styles.infoRow, { opacity: pressed ? 0.85 : 1 }]}>
-            <Feather name="link" size={14} color="#0F6E56" />
+            <Feather name="link" size={14} color="#D4B483" />
             <Text style={styles.infoRowText}>링크에서 자세히 보기</Text>
-            <Feather name="external-link" size={14} color="#0F6E56" />
+            <Feather name="external-link" size={14} color="#D4B483" />
           </Pressable>
         ) : null}
 
@@ -714,66 +714,66 @@ function CandidateComments({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F2EFE9' },
+  root: { flex: 1, backgroundColor: '#121212' },
   center: { flex: 1, padding: 32, alignItems: 'center', justifyContent: 'center' },
-  hint: { marginTop: 10, fontSize: 12, color: '#888780', textAlign: 'center' },
-  errorTitle: { fontSize: 15, fontWeight: '700', color: '#2B2422' },
+  hint: { marginTop: 10, fontSize: 12, color: '#BDBDBD', textAlign: 'center' },
+  errorTitle: { fontSize: 15, fontWeight: '700', color: '#F2F2F2' },
   retryBtn: {
     marginTop: 14,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D3D1CC',
-    backgroundColor: '#fff',
+    borderColor: '#2F2F2F',
+    backgroundColor: '#1E1E1E',
   },
-  retryText: { fontSize: 13, fontWeight: '700', color: '#2B2422' },
+  retryText: { fontSize: 13, fontWeight: '700', color: '#F2F2F2' },
   topbar: {
-    backgroundColor: '#fff',
+    backgroundColor: '#121212',
     paddingHorizontal: 16,
     paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E6E4DF',
+    borderBottomColor: '#2F2F2F',
   },
   topbarBack: {
     width: 32,
     height: 32,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D3D1CC',
+    borderColor: '#2F2F2F',
     alignItems: 'center',
     justifyContent: 'center',
   },
   topbarInfo: { flex: 1, minWidth: 0 },
-  topbarTitle: { fontSize: 14, fontWeight: '600', color: '#2B2422' },
-  topbarSub: { fontSize: 11, color: '#888780', marginTop: 1 },
-  topbarIdx: { fontSize: 12, color: '#888780' },
+  topbarTitle: { fontSize: 14, fontWeight: '700', color: '#F2F2F2' },
+  topbarSub: { fontSize: 11, color: '#BDBDBD', marginTop: 1 },
+  topbarIdx: { fontSize: 12, color: '#D4B483' },
   navRow: {
-    backgroundColor: '#fff',
+    backgroundColor: '#121212',
     paddingHorizontal: 16,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E6E4DF',
+    borderBottomColor: '#2F2F2F',
   },
-  navCount: { fontSize: 12, color: '#63635E' },
-  navCountStrong: { fontWeight: '700', color: '#2B2422' },
+  navCount: { fontSize: 12, color: '#BDBDBD' },
+  navCountStrong: { fontWeight: '700', color: '#D4B483' },
   navBtns: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   navBtn: {
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D3D1CC',
-    backgroundColor: '#fff',
+    borderColor: '#2F2F2F',
+    backgroundColor: '#1E1E1E',
   },
   navBtnDisabled: { opacity: 0.35 },
-  navBtnText: { fontSize: 12, fontWeight: '600', color: '#2B2422' },
+  navBtnText: { fontSize: 12, fontWeight: '600', color: '#F2F2F2' },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -781,20 +781,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: PICK_DONE,
+    backgroundColor: PICK_COLOR,
   },
-  addBtnText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  addBtnText: { fontSize: 12, fontWeight: '700', color: '#121212' },
   voteBar: {
     marginHorizontal: 14,
     marginTop: 10,
     marginBottom: 6,
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E6E4DF',
+    borderColor: '#2F2F2F',
     padding: 12,
     borderRadius: 12,
   },
-  voteTitle: { fontSize: 11, fontWeight: '600', color: '#63635E', marginBottom: 8 },
+  voteTitle: { fontSize: 11, fontWeight: '600', color: '#BDBDBD', marginBottom: 8 },
   voteMember: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -804,8 +804,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E6E4DF',
-    backgroundColor: '#F7F6F3',
+    borderColor: '#2F2F2F',
+    backgroundColor: '#252525',
   },
   voteAvatar: {
     width: 22,
@@ -814,14 +814,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  voteAvatarText: { fontSize: 10, fontWeight: '700', color: '#085041' },
-  voteName: { fontSize: 12, color: '#2B2422' },
+  voteAvatarText: { fontSize: 10, fontWeight: '700', color: '#D4B483' },
+  voteName: { fontSize: 12, color: '#F2F2F2' },
   voteStatus: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
-  voteDone: { backgroundColor: '#E1F5EE' },
-  voteWait: { backgroundColor: '#F2EFE9' },
+  voteDone: { backgroundColor: '#1F3C39' },
+  voteWait: { backgroundColor: '#252525' },
   voteStatusText: { fontSize: 11, fontWeight: '600' },
-  voteDoneText: { color: '#085041' },
-  voteWaitText: { color: '#888780' },
+  voteDoneText: { color: '#D4B483' },
+  voteWaitText: { color: '#BDBDBD' },
   mainScroll: { flex: 1 },
   mainScrollContent: { paddingBottom: 16 },
   carousel: { flexGrow: 0 },
@@ -831,16 +831,16 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   slideSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E6E4DF',
+    borderColor: '#2F2F2F',
     overflow: 'hidden',
   },
   slideFooter: {
     paddingTop: 6,
     paddingBottom: 4,
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#121212',
   },
   dotsRow: {
     flexDirection: 'row',
@@ -866,17 +866,17 @@ const styles = StyleSheet.create({
   commentBlock: { marginTop: 10 },
   commentBlockEmbedded: { marginTop: 0 },
   commentSection: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
     borderRadius: 12,
     padding: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E6E4DF',
+    borderColor: '#2F2F2F',
   },
   commentSectionEmbedded: {
     borderRadius: 0,
     borderWidth: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E6E4DF',
+    borderTopColor: '#2F2F2F',
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 8,
@@ -887,34 +887,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  commentLabel: { fontSize: 11, fontWeight: '600', color: '#0F6E56' },
+  commentLabel: { fontSize: 11, fontWeight: '600', color: '#D4B483' },
   commentCountBadge: {
-    backgroundColor: '#F7F6F3',
+    backgroundColor: '#252525',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
-  commentCountText: { fontSize: 11, color: '#888780' },
-  commentEmpty: { fontSize: 12, color: '#888780' },
+  commentCountText: { fontSize: 11, color: '#BDBDBD' },
+  commentEmpty: { fontSize: 12, color: '#BDBDBD' },
   commentItem: {
     flexDirection: 'row',
     gap: 8,
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E6E4DF',
+    borderBottomColor: '#2F2F2F',
   },
   commentAvatar: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#9FE1CB',
+    backgroundColor: '#2A5A55',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  commentAvatarText: { fontSize: 11, fontWeight: '700', color: '#085041' },
+  commentAvatarText: { fontSize: 11, fontWeight: '700', color: '#D4B483' },
   commentBody: { flex: 1 },
-  commentAuthor: { fontSize: 11, color: '#888780', marginBottom: 2 },
-  commentText: { fontSize: 13, color: '#2B2422', lineHeight: 18 },
+  commentAuthor: { fontSize: 11, color: '#BDBDBD', marginBottom: 2 },
+  commentText: { fontSize: 13, color: '#F2F2F2', lineHeight: 18 },
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 14,
     paddingTop: 4,
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
   },
   commentInput: {
     flex: 1,
@@ -936,15 +936,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D3D1CC',
-    backgroundColor: '#fff',
-    color: '#2B2422',
+    borderColor: '#2F2F2F',
+    backgroundColor: '#252525',
+    color: '#F2F2F2',
   },
   commentSend: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: PICK_DONE,
+    backgroundColor: '#2A5A55',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -953,20 +953,20 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingTop: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#121212',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E6E4DF',
+    borderTopColor: '#2F2F2F',
   },
   bottomBtnFull: { flex: 1 },
   btnHold: {
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#D3D1CC',
-    backgroundColor: '#fff',
+    borderColor: '#2F2F2F',
+    backgroundColor: '#1E1E1E',
     alignItems: 'center',
   },
-  btnHoldText: { fontSize: 14, fontWeight: '600', color: '#2B2422' },
+  btnHoldText: { fontSize: 14, fontWeight: '600', color: '#F2F2F2' },
   btnPick: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
   },
   btnPickText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   candidateCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1E1E1E',
     overflow: 'hidden',
   },
   imgArea: {
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
-  candName: { fontSize: 16, fontWeight: '600', color: '#2B2422' },
+  candName: { fontSize: 16, fontWeight: '700', color: '#F2F2F2' },
   candNameFlex: { flex: 1 },
   candTitleActions: {
     flexDirection: 'row',
@@ -1012,17 +1012,17 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#9FE1CB',
-    backgroundColor: '#F2FBF8',
+    borderColor: '#3E3A31',
+    backgroundColor: '#252525',
   },
-  editBtnText: { fontSize: 11, fontWeight: '700', color: '#0F6E56' },
+  editBtnText: { fontSize: 11, fontWeight: '700', color: '#D4B483' },
   titlePickBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#2B2422',
+    backgroundColor: '#D4B483',
   },
-  titlePickBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  titlePickBadgeText: { fontSize: 11, fontWeight: '800', color: '#121212' },
   candPrice: { fontSize: 15, fontWeight: '600', color: PICK_COLOR, marginBottom: 12 },
   infoRow: {
     flexDirection: 'row',
@@ -1030,21 +1030,21 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 9,
     paddingHorizontal: 12,
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#252525',
     borderRadius: 12,
     marginBottom: 8,
   },
-  infoRowText: { flex: 1, fontSize: 13, color: '#085041' },
+  infoRowText: { flex: 1, fontSize: 13, color: '#F2F2F2' },
   detailBox: {
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#252525',
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 0,
   },
   detailBoxEmpty: { opacity: 0.85 },
-  detailLabel: { fontSize: 11, fontWeight: '600', color: '#0F6E56', marginBottom: 4 },
-  detailText: { fontSize: 13, color: '#2B2422', lineHeight: 20 },
+  detailLabel: { fontSize: 11, fontWeight: '600', color: '#D4B483', marginBottom: 4 },
+  detailText: { fontSize: 13, color: '#F2F2F2', lineHeight: 20 },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
   },
   overlayMetaBox: {
     width: '100%',
-    backgroundColor: '#F2EFE9',
+    backgroundColor: '#252525',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,

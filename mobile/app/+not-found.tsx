@@ -2,16 +2,19 @@ import { Link, Stack } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { useTokens } from '@/src/ui/tokens';
 
 export default function NotFoundScreen() {
+  const t = useTokens();
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn't exist.</Text>
+      <Stack.Screen options={{ title: '화면 없음' }} />
+      <View style={[styles.container, { backgroundColor: t.colors.background }]}>
+        <Text style={[styles.title, { color: t.colors.text }]}>요청한 화면을 찾을 수 없어요.</Text>
 
         <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
+          <Text style={[styles.linkText, { color: t.colors.gold }]}>홈으로 돌아가기</Text>
         </Link>
       </View>
     </>

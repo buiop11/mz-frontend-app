@@ -57,7 +57,7 @@ export default function MeScreen() {
               },
             ]}>
             <View
-              style={[styles.menuIconWrap, { backgroundColor: 'rgba(122, 204, 192, 0.14)' }]}
+              style={[styles.menuIconWrap, { backgroundColor: 'rgba(212, 180, 131, 0.18)' }]}
               lightColor="transparent"
               darkColor="transparent">
               <Feather name="folder" size={16} color={t.colors.tint} />

@@ -65,7 +65,7 @@ export function GoogleLoginPanel({ onAuthResult, statusText }: Props) {
           styles.googleBtn,
           {
             borderColor: t.colors.border,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: t.colors.gold,
             opacity: pressed && !buttonDisabled ? 0.85 : buttonOpacity,
           },
         ]}>
@@ -74,9 +74,9 @@ export function GoogleLoginPanel({ onAuthResult, statusText }: Props) {
         ) : (
           <View style={styles.googleContent} lightColor="transparent" darkColor="transparent">
             <View style={styles.googleMark} lightColor="transparent" darkColor="transparent">
-              <Text style={{ fontSize: 16, fontWeight: '800', color: '#4285F4' }}>G</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#2A5A55' }}>G</Text>
             </View>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#222222' }}>구글로 계속하기</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#121212' }}>구글로 계속하기</Text>
           </View>
         )}
       </Pressable>
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(41, 171, 162, 0.1)',
+    backgroundColor: 'rgba(212, 180, 131, 0.16)',
   },
   googleBtn: {
     marginTop: 18,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F4F7FB',
+    backgroundColor: 'rgba(42, 90, 85, 0.16)',
   },
   hintBtn: {
     marginTop: 14,

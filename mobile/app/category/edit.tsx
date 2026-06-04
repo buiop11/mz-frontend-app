@@ -148,12 +148,12 @@ export default function CategoryEditScreen() {
             style={[
               styles.submit,
               {
-                backgroundColor: t.colors.text,
+                backgroundColor: t.colors.gold,
                 borderRadius: t.radius.lg,
                 opacity: submitting || categorySeq == null ? 0.5 : 1,
               },
             ]}>
-            <Text style={{ color: t.colors.surface, fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: t.colors.ctaText, fontSize: 15, fontWeight: '700' }}>
               {submitting ? '저장 중…' : '변경 사항 저장'}
             </Text>
           </Pressable>

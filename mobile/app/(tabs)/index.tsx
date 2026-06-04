@@ -14,8 +14,8 @@ const MAX_VISIBLE_TOPICS = 4;
 
 // 안건 카드의 상태 뱃지 색상 팔레트 (시안과 동일하게 mint/neutral 두 종류).
 const BADGE_PALETTE: Record<'mint' | 'neutral', { bg: string; fg: string }> = {
-  mint: { bg: '#DDF7F1', fg: '#248B82' },
-  neutral: { bg: '#EFE6DC', fg: '#8A7766' },
+  mint: { bg: '#1F3C39', fg: '#D4B483' },
+  neutral: { bg: '#2A2A2A', fg: '#F2F2F2' },
 };
 
 export default function HomeScreen() {
@@ -153,7 +153,7 @@ export default function HomeScreen() {
         {/* 1) 타이틀 + 알림 벨 */}
         <View style={styles.headerRow} lightColor="transparent" darkColor="transparent">
           <Text style={[styles.title, { color: t.colors.text, flex: 1 }]} numberOfLines={1}>
-            우리의 결정 <Text style={{ color: t.colors.tint }}>대기실</Text>
+            우리의 결정 <Text style={{ color: t.colors.gold }}>대기실</Text>
           </Text>
           <Pressable
             style={({ pressed }) => [
@@ -170,7 +170,7 @@ export default function HomeScreen() {
         </View>
 
         {/* 3) 메인 배너 (도트 패턴 + CTA) */}
-        <View style={[styles.hero, { backgroundColor: '#50AAA4' }]}>
+        <View style={[styles.hero, { backgroundColor: t.colors.tint }]}>
           {DOTS.map((dot) => (
             <View
               key={dot.key}
@@ -190,7 +190,7 @@ export default function HomeScreen() {
               onPress={goCreate}
               style={({ pressed }) => [
                 styles.primaryButton,
-                { backgroundColor: '#322B2A', opacity: pressed ? 0.85 : 1 },
+                { backgroundColor: t.colors.gold, opacity: pressed ? 0.85 : 1 },
               ]}>
               <Text style={styles.primaryButtonText}>안건 만들기</Text>
             </Pressable>
@@ -221,7 +221,15 @@ export default function HomeScreen() {
               <Text
                 style={[
                   styles.statValue,
-                  { color: item.highlight ? t.colors.tint : t.colors.text },
+                  item.highlight
+                    ? {
+                        color: t.colors.ctaText,
+                        backgroundColor: t.colors.gold,
+                        borderRadius: 999,
+                        paddingHorizontal: 10,
+                        paddingVertical: 2,
+                      }
+                    : { color: t.colors.text },
                 ]}>
                 {item.value}
               </Text>
@@ -238,8 +246,11 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { color: t.colors.text }]}>진행 중 안건</Text>
           <Pressable
             onPress={goAgendaList}
-            style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-            <Text style={[styles.sectionMore, { color: t.colors.tint }]}>전체 보기</Text>
+            style={({ pressed }) => [
+              styles.sectionMorePill,
+              { backgroundColor: t.colors.gold, opacity: pressed ? 0.75 : 1 },
+            ]}>
+            <Text style={[styles.sectionMore, { color: t.colors.ctaText }]}>전체 보기</Text>
           </Pressable>
         </View>
 
@@ -259,6 +270,8 @@ type TopicCardProps = Readonly<{
 
 function TopicCard({ topic, onPress, textColor, subColor }: TopicCardProps) {
   const badge = BADGE_PALETTE[topic.tagVariant] ?? BADGE_PALETTE.mint;
+  const isPickTag = /pick/i.test(topic.tag);
+  const t = useTokens();
 
   return (
     <Pressable
@@ -270,10 +283,12 @@ function TopicCard({ topic, onPress, textColor, subColor }: TopicCardProps) {
       <Card border background="surface" radius={18} padding={18} style={styles.topicCard}>
         <Text style={styles.topicEmoji}>{topic.emoji}</Text>
         <View
-          style={[styles.statusBadge, { backgroundColor: badge.bg }]}
+          style={[styles.statusBadge, { backgroundColor: isPickTag ? t.colors.gold : badge.bg }]}
           lightColor="transparent"
           darkColor="transparent">
-          <Text style={[styles.statusText, { color: badge.fg }]}>{topic.tag}</Text>
+          <Text style={[styles.statusText, { color: isPickTag ? t.colors.ctaText : badge.fg }]}>
+            {topic.tag}
+          </Text>
         </View>
         <Text style={[styles.topicTitle, { color: textColor }]} numberOfLines={2}>
           {topic.title}
@@ -330,15 +345,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  modePill: {
-    height: 28,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  modeText: { color: '#6CAEA5', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   bellButton: {
     width: 46,
     height: 46,
@@ -354,7 +360,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#F05F4F',
+    backgroundColor: '#D4B483',
   },
   title: { fontSize: 24, fontWeight: '800', letterSpacing: -0.6 },
   hero: {
@@ -392,7 +398,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  primaryButtonText: { color: '#121212', fontSize: 14, fontWeight: '800' },
   secondaryButton: {
     height: 46,
     paddingHorizontal: 22,
@@ -402,7 +408,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  secondaryButtonText: { color: '#F2F2F2', fontSize: 14, fontWeight: '700' },
   statsCard: {
     minHeight: 68,
     flexDirection: 'row',
@@ -419,6 +425,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitle: { fontSize: 17, fontWeight: '800' },
+  sectionMorePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
   sectionMore: { fontSize: 13, fontWeight: '600' },
   centerCard: { alignItems: 'center', justifyContent: 'center' },
   centerCardCaption: { marginTop: 10, fontSize: 12 },

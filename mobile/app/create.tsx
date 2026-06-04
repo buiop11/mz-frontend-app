@@ -382,7 +382,7 @@ export default function CreateScreen() {
                     ]}>
                     <Text
                       style={{
-                        color: active ? '#FFFFFF' : t.colors.text,
+                        color: active ? t.colors.gold : t.colors.text,
                         fontSize: 13,
                         fontWeight: '600',
                       }}>
@@ -468,12 +468,12 @@ export default function CreateScreen() {
             style={[
               styles.submit,
               {
-                backgroundColor: t.colors.text,
+                backgroundColor: t.colors.gold,
                 borderRadius: t.radius.lg,
                 opacity: formDisabled ? 0.5 : 1,
               },
             ]}>
-            <Text style={{ color: t.colors.surface, fontSize: 15, fontWeight: '600' }}>
+            <Text style={{ color: t.colors.ctaText, fontSize: 15, fontWeight: '700' }}>
               {submitButtonText}
             </Text>
           </Pressable>
@@ -583,8 +583,8 @@ function ModePill({
           opacity: disabled ? 0.6 : 1,
         },
       ]}>
-      <Feather name={icon} size={14} color={active ? '#FFFFFF' : t.colors.text} />
-      <Text style={{ color: active ? '#FFFFFF' : t.colors.text, fontSize: 13, fontWeight: '700' }}>
+      <Feather name={icon} size={14} color={active ? t.colors.gold : t.colors.text} />
+      <Text style={{ color: active ? t.colors.gold : t.colors.text, fontSize: 13, fontWeight: '700' }}>
         {label}
       </Text>
     </Pressable>

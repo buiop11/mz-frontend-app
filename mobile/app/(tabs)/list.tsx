@@ -19,7 +19,7 @@ import { useAuth } from '@/src/auth/AuthProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
-const FAB_COLOR = '#EF6B4F';
+const FAB_COLOR = '#D4B483';
 
 export default function ListScreen() {
   const t = useTokens();
@@ -164,12 +164,12 @@ export default function ListScreen() {
             <RNView
               style={[
                 styles.statusBadge,
-                { backgroundColor: tp.tagVariant === 'mint' ? '#DDF7F1' : '#2B2422' },
+                { backgroundColor: tp.tagVariant === 'mint' ? '#1F3C39' : '#D4B483' },
               ]}>
               <Text
                 style={[
                   styles.statusText,
-                  { color: tp.tagVariant === 'mint' ? '#248B82' : '#FFFFFF' },
+                  { color: tp.tagVariant === 'mint' ? '#D4B483' : '#121212' },
                 ]}>
                 {tp.tagVariant === 'mint' ? tp.tag : 'Pick!'}
               </Text>
@@ -205,7 +205,9 @@ export default function ListScreen() {
   return (
     <View style={[styles.root, { backgroundColor: t.colors.background }]}>
       <RNView style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.title, { color: t.colors.text }]}>안건 전체 목록</Text>
+        <Text style={[styles.title, { color: t.colors.text }]}>
+          안건 전체 <Text style={{ color: t.colors.gold }}>목록</Text>
+        </Text>
       </RNView>
 
       <RNView style={styles.catBlock}>
@@ -290,7 +292,7 @@ export default function ListScreen() {
         ]}
         accessibilityRole="button"
         accessibilityLabel="안건 추가">
-        <Feather name="plus" size={28} color="#FFFFFF" />
+        <Feather name="plus" size={28} color="#121212" />
       </Pressable>
     </View>
   );
@@ -333,7 +335,7 @@ function CategoryChip({
         },
       ]}>
       <Text style={styles.chipEmoji}>{emoji}</Text>
-      <Text style={[styles.chipLabel, { color: selected ? '#FFFFFF' : text }]} numberOfLines={1}>
+      <Text style={[styles.chipLabel, { color: selected ? '#D4B483' : text }]} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>
@@ -372,7 +374,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(122, 204, 192, 0.08)',
+    backgroundColor: 'rgba(212, 180, 131, 0.15)',
   },
   catScroll: {
     flexGrow: 0,
@@ -477,13 +479,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#F4B6AE',
-    backgroundColor: '#FFF7F6',
+    borderColor: '#5A3A36',
+    backgroundColor: '#2A1C1A',
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteText: { color: '#D65041', fontSize: 12, fontWeight: '800' },
+  deleteText: { color: '#DE6C5A', fontSize: 12, fontWeight: '800' },
   fab: {
     position: 'absolute',
     right: 20,

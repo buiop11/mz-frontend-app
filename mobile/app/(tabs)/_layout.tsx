@@ -30,7 +30,21 @@ export default function TabLayout() {
           backgroundColor: c.surface,
           borderTopColor: c.border,
           borderTopWidth: 1,
+          elevation: 0,
         },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        headerStyle: {
+          backgroundColor: c.surface,
+          borderBottomColor: c.border,
+        },
+        headerTitleStyle: {
+          color: c.gold,
+          fontWeight: '700',
+        },
+        headerTintColor: c.gold,
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),

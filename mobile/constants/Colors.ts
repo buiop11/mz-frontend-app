@@ -1,30 +1,36 @@
-const brandMint = '#7ACCC0';
-const brandRed = '#E07060';
+const deepTailGreen = '#2A5A55';
+const champagneGold = '#D4B483';
+const offWhite = '#F2F2F2';
+const dangerRed = '#DE6C5A';
 
 const light = {
-  text: '#3A3028',
-  background: '#F5EFE4',
-  tint: brandMint,
-  tabIconDefault: '#9A9080',
-  tabIconSelected: brandMint,
-  surface: '#FFFFFF',
-  muted: '#EDE4D8',
-  border: '#E8DFD2',
-  subtext: '#7A6E60',
-  danger: brandRed,
+  text: offWhite,
+  background: '#121212',
+  tint: deepTailGreen,
+  tabIconDefault: '#8A8A8A',
+  tabIconSelected: champagneGold,
+  surface: '#1E1E1E',
+  muted: '#252525',
+  border: '#2F2F2F',
+  subtext: '#BDBDBD',
+  danger: dangerRed,
+  gold: champagneGold,
+  ctaText: '#121212',
 };
 
 const dark = {
-  text: '#F3EEE5',
-  background: '#16130F',
-  tint: brandMint,
-  tabIconDefault: '#8C8377',
-  tabIconSelected: brandMint,
-  surface: '#1F1B15',
-  muted: '#2A241D',
-  border: '#3A3228',
-  subtext: '#B3AA9E',
-  danger: brandRed,
+  text: offWhite,
+  background: '#121212',
+  tint: deepTailGreen,
+  tabIconDefault: '#8A8A8A',
+  tabIconSelected: champagneGold,
+  surface: '#1E1E1E',
+  muted: '#252525',
+  border: '#2F2F2F',
+  subtext: '#BDBDBD',
+  danger: dangerRed,
+  gold: champagneGold,
+  ctaText: '#121212',
 };
 
 export default { light, dark };

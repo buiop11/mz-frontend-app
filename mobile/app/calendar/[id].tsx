@@ -31,7 +31,7 @@ export default function CalendarDetailScreen() {
                 key={e}
                 style={[
                   styles.sticker,
-                  { backgroundColor: e === '🐻' ? '#C8E8D8' : t.colors.surface, borderRadius: 12 },
+                  { backgroundColor: e === '🐻' ? '#2A5A55' : t.colors.surface, borderRadius: 12 },
                 ]}>
                 <Text style={{ fontSize: 22 }}>{e}</Text>
               </View>
@@ -48,14 +48,14 @@ export default function CalendarDetailScreen() {
 
           <View style={styles.meta} lightColor="transparent" darkColor="transparent">
             <View style={[styles.tag, { backgroundColor: t.colors.tint, borderRadius: t.radius.pill }]}>
-              <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '600' }}>알림</Text>
+              <Text style={{ color: t.colors.ctaText, fontSize: 11, fontWeight: '700' }}>알림</Text>
             </View>
             <Text style={{ color: t.colors.tabIconDefault, fontSize: 12 }}>오후 3:00 · 온라인</Text>
           </View>
 
           <View style={styles.actions} lightColor="transparent" darkColor="transparent">
-            <Pressable style={[styles.primary, { backgroundColor: t.colors.text, borderRadius: t.radius.md }]}>
-              <Text style={{ color: t.colors.surface, fontSize: 15, fontWeight: '600' }}>자세히 보기</Text>
+            <Pressable style={[styles.primary, { backgroundColor: t.colors.gold, borderRadius: t.radius.md }]}>
+              <Text style={{ color: t.colors.ctaText, fontSize: 15, fontWeight: '700' }}>자세히 보기</Text>
             </Pressable>
             <Pressable style={[styles.secondary, { backgroundColor: t.colors.muted, borderRadius: t.radius.md }]}>
               <Text style={{ color: t.colors.text, fontSize: 15, fontWeight: '600' }}>캘린더에 저장</Text>

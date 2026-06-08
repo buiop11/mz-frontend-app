@@ -207,7 +207,7 @@ export default function HistoryScreen() {
         ) : mode === 'timeline' ? (
           <View style={styles.timelineWrap} lightColor="transparent" darkColor="transparent">
             <Text style={[styles.timelineGuide, { color: t.colors.subtext }]}>
-              날짜 · 안건 · Pick 결과 순으로 기록돼요.
+              안건을 Pick 한 날짜 최신순으로 기록돼요.
             </Text>
             {logs.map((item, index) => {
               const isLast = index === logs.length - 1;
@@ -364,8 +364,11 @@ function buildDecisionLogs(items: PickTopicLogItem[]): DecisionLog[] {
 }
 
 function parseTopicDate(topic: PickTopicLogItem, baseDate: Date, index: number): Date {
-  const parsed = parseIsoDate(topic.pickDate);
-  if (parsed) return parsed;
+  // 타임라인·캘린더 상단 날짜는 Pick 일정(pickDate)이 아니라 실제 결정 시각(updateDt) 기준.
+  const fromUpdate = parseIsoDate(topic.updateDt);
+  if (fromUpdate) return fromUpdate;
+  const fromPick = parseIsoDate(topic.pickDate);
+  if (fromPick) return fromPick;
   const fallback = new Date(baseDate);
   fallback.setDate(baseDate.getDate() - index);
   return fallback;

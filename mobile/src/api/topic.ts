@@ -461,7 +461,7 @@ function normalizePickTopicLogRow(item: any): PickTopicLogItem | null {
     status: String(item.status ?? '').toUpperCase(),
     picked: Boolean(item.picked) || isPickStatus(String(item.status ?? '').toUpperCase()),
     googleEventId: optionalString(item.googleEventId),
-    updateDt: optionalString(item.updateDt),
+    updateDt: optionalString(item.updateDt ?? item.updateDate),
     candidateName: optionalString(item.name),
     candidateInfo: optionalString(item.info),
     candidatePrice: optionalNumber(item.price),

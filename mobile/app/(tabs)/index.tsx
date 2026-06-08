@@ -24,7 +24,11 @@ export default function HomeScreen() {
 
   // 백엔드 /api/topic 응답을 화면 상태로 보관한다.
   const [topics, setTopics] = useState<TopicSummary[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
+  const [stats, setStats] = useState({
+    inProgressCount: 0,
+    pickedCount: 0,
+    thisWeekCount: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +39,7 @@ export default function HomeScreen() {
     if (memberSeq == null) {
       console.warn('[home] memberSeq 가 없어 /api/topic 호출 생략');
       setTopics([]);
-      setTotalCount(0);
+      setStats({ inProgressCount: 0, pickedCount: 0, thisWeekCount: 0 });
       setError('회원번호를 확인할 수 없습니다. 다시 로그인해 주세요.');
       setLoading(false);
       return;
@@ -44,15 +48,24 @@ export default function HomeScreen() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getMemberTopics({ memberSeq, currentPage: 1, picked: false });
+      const [inProgress, picked] = await Promise.all([
+        getMemberTopics({ memberSeq, currentPage: 1, picked: false }),
+        getMemberTopics({ memberSeq, currentPage: 1, picked: true }),
+      ]);
+      const inProgressCount = inProgress.totalCount ?? inProgress.list.length;
+      const pickedCount = picked.totalCount ?? picked.list.length;
       // SUC001 응답이면 빈 리스트라도 그대로 화면에 반영한다 (예전엔 fromApi 가 false 면 더미가 무시돼서 빈 상태가 보였음).
-      setTopics(result.list);
-      setTotalCount(result.totalCount ?? result.list.length);
+      setTopics(inProgress.list);
+      setStats({
+        inProgressCount,
+        pickedCount,
+        thisWeekCount: inProgressCount + pickedCount,
+      });
     } catch (e: any) {
       // 콘솔에 풀스택을 그대로 남겨야 백엔드 연동 문제를 빠르게 진단할 수 있다.
       console.error('[home] /api/topic 호출 실패', e);
       setTopics([]);
-      setTotalCount(0);
+      setStats({ inProgressCount: 0, pickedCount: 0, thisWeekCount: 0 });
       setError(e?.message ?? '안건 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
@@ -70,13 +83,20 @@ export default function HomeScreen() {
   }, [loadTopics, refreshToken]);
 
   const visibleTopics = topics;
-  const stats = useMemo(() => buildStats(topics, totalCount), [topics, totalCount]);
+  const statItems = useMemo(
+    () => [
+      { label: '진행 중', value: stats.inProgressCount, highlight: false },
+      { label: '전체', value: stats.thisWeekCount, highlight: true },
+      { label: 'Pick 완료', value: stats.pickedCount, highlight: false },
+    ],
+    [stats],
+  );
 
   // 화면 진입 직후 사용자 이름이 비어 있을 수 있어 '우리' 폴백을 둔다.
   const displayName = (user?.name?.trim() || '우리').replace(/\s/g, '');
 
-  // 상단 배너에 노출할 "이번 주 N건" 카운트 — 진행 중 + 완료 모두 포함한 totalCount 기준.
-  const weeklyAgendaCount = Math.max(stats.thisWeek, visibleTopics.length, 0);
+  // 상단 배너 — 진행 중 + Pick 완료 합산 건수.
+  const weeklyAgendaCount = Math.max(stats.thisWeekCount, 0);
 
   const goCreate = useCallback(() => router.push('/create'), [router]);
   const goAgendaList = useCallback(() => router.push('/list'), [router]);
@@ -185,7 +205,7 @@ export default function HomeScreen() {
             />
           ))}
           <Text style={styles.heroTitle}>
-            {displayName}님, 이번 주 {weeklyAgendaCount}개의 의결사항이 있어요!
+            {displayName}님,{weeklyAgendaCount}개의 의결사항이 있어요!
           </Text>
           <Text style={styles.heroSub}>
             링크를 붙여 넣고 후보를 모아, 투표로 가볍게 결정해요.
@@ -217,7 +237,7 @@ export default function HomeScreen() {
           radius={18}
           padding={0}
           style={styles.statsCard}>
-          {stats.items.map((item) => (
+          {statItems.map((item) => (
             <View
               key={item.label}
               style={styles.statItem}
@@ -314,32 +334,6 @@ const DOTS = Array.from({ length: 63 }, (_, i) => ({
   left: 22 + (i % 9) * 35,
   top: 18 + Math.floor(i / 9) * 25,
 }));
-
-function buildStats(topics: TopicSummary[], totalCount: number) {
-  // 상태 문자열은 백엔드/프론트에서 케이싱이 다를 수 있어 대문자로 비교한다.
-  const openCount = topics.filter((topic) => isOpenStatus(topic.status)).length;
-  const pickedCount = topics.filter((topic) => isPickedStatus(topic.status)).length;
-  // "이번 주" 카운트는 페이지네이션 totalCount 기준으로 잡되, 최소한 현재 보고 있는 개수보다 작게 보이지 않게 한다.
-  const thisWeek = Math.max(totalCount || topics.length, topics.length);
-
-  return {
-    thisWeek,
-    items: [
-      { label: '진행 중', value: openCount, highlight: false },
-      { label: '이번 주', value: thisWeek, highlight: true },
-      { label: 'Pick 완료', value: pickedCount, highlight: false },
-    ],
-  };
-}
-
-function isPickedStatus(status: string) {
-  return ['PICK', 'PICKED', 'DONE', 'CONFIRMED', 'COMPLETED', 'CLOSED'].includes(status);
-}
-
-function isOpenStatus(status: string) {
-  if (!status) return true;
-  return !isPickedStatus(status);
-}
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

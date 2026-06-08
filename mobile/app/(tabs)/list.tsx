@@ -33,6 +33,7 @@ export default function ListScreen() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategorySeq, setSelectedCategorySeq] = useState<number | null>(null);
+  const [showPickedOnly, setShowPickedOnly] = useState(false);
   const [query, setQuery] = useState('');
   const [topics, setTopics] = useState<TopicSummary[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
@@ -61,7 +62,7 @@ export default function ListScreen() {
   }, [memberSeq]);
 
   const loadTopics = useCallback(
-    async (categorySeq: number | null) => {
+    async (categorySeq: number | null, pickedOnly: boolean) => {
       if (memberSeq == null) {
         setTopics([]);
         setLoadingTopics(false);
@@ -75,6 +76,7 @@ export default function ListScreen() {
           memberSeq,
           currentPage: 1,
           categorySeq: categorySeq ?? undefined,
+          picked: pickedOnly ? true : undefined,
         });
         setTopics(res.list);
       } catch (e: unknown) {
@@ -90,8 +92,8 @@ export default function ListScreen() {
 
   const reload = useCallback(() => {
     void loadCategories();
-    void loadTopics(selectedCategorySeq);
-  }, [loadCategories, loadTopics, selectedCategorySeq]);
+    void loadTopics(selectedCategorySeq, showPickedOnly);
+  }, [loadCategories, loadTopics, selectedCategorySeq, showPickedOnly]);
 
   useFocusEffect(
     useCallback(() => {
@@ -194,7 +196,7 @@ export default function ListScreen() {
           <Text style={[styles.errorTitle, { color: t.colors.text }]}>안건을 불러오지 못했어요</Text>
           <Text style={[styles.errorBody, { color: t.colors.subtext }]}>{error}</Text>
           <Pressable
-            onPress={() => loadTopics(selectedCategorySeq)}
+            onPress={() => loadTopics(selectedCategorySeq, showPickedOnly)}
             style={({ pressed }) => [styles.retryBtn, { borderColor: t.colors.border, opacity: pressed ? 0.7 : 1 }]}>
             <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 13 }}>다시 시도</Text>
           </Pressable>
@@ -303,8 +305,24 @@ export default function ListScreen() {
           <CategoryChip
             label="전체"
             emoji="✨"
-            selected={selectedCategorySeq == null}
-            onPress={() => setSelectedCategorySeq(null)}
+            selected={selectedCategorySeq == null && !showPickedOnly}
+            onPress={() => {
+              setSelectedCategorySeq(null);
+              setShowPickedOnly(false);
+            }}
+            tint={t.colors.tint}
+            surface={t.colors.surface}
+            border={t.colors.border}
+            text={t.colors.text}
+          />
+          <CategoryChip
+            label="Pick"
+            emoji="💖"
+            selected={showPickedOnly}
+            onPress={() => {
+              setSelectedCategorySeq(null);
+              setShowPickedOnly(true);
+            }}
             tint={t.colors.tint}
             surface={t.colors.surface}
             border={t.colors.border}
@@ -321,7 +339,10 @@ export default function ListScreen() {
                 label={c.name}
                 emoji={c.emoji}
                 selected={selectedCategorySeq === c.categorySeq}
-                onPress={() => setSelectedCategorySeq(c.categorySeq)}
+                onPress={() => {
+                  setSelectedCategorySeq(c.categorySeq);
+                  setShowPickedOnly(false);
+                }}
                 tint={t.colors.tint}
                 surface={t.colors.surface}
                 border={t.colors.border}

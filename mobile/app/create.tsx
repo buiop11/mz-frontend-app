@@ -188,6 +188,13 @@ export default function CreateScreen() {
     return Linking.createURL('/invite', { queryParams: { topicSeq: String(editTopicSeq) } });
   }, [isEditMode, editTopicSeq]);
 
+  const moveToListAfterSubmit = useCallback(() => {
+    router.replace({
+      pathname: '/list',
+      params: { refreshAt: String(Date.now()) },
+    });
+  }, [router]);
+
   async function handleSubmit() {
     const trimmed = title.trim();
     if (!trimmed) {
@@ -225,29 +232,10 @@ export default function CreateScreen() {
           title: trimmed,
           googleEventId: null,
         });
-        // Alert 버튼 콜백이 호출되지 않는 케이스(바깥 터치로 닫힘 등)를 대비해 즉시 목록으로 이동한다.
-        Alert.alert('수정 완료', `'${trimmed}' 안건이 수정되었습니다.`, [
-          { text: '확인', onPress: () => router.replace('/(tabs)/list') },
-        ]);
-        router.replace('/(tabs)/list');
+        moveToListAfterSubmit();
       } else {
-        const created = await createTopic(payload);
-        const createdSeq = Number.parseInt(created.topicSeq, 10);
-        const link = Number.isFinite(createdSeq)
-          ? Linking.createURL('/invite', { queryParams: { topicSeq: String(createdSeq) } })
-          : '';
-
-        if (inviteMode === 'invite' && link) {
-          Alert.alert('등록 완료', `'${trimmed}' 안건이 등록되었습니다.\n\n초대 링크를 공유해 보세요.`, [
-            { text: '링크 복사', onPress: () => copyToClipboard(link, '초대 링크를 클립보드에 복사했어요.') },
-            { text: '공유', onPress: () => shareText(link) },
-            { text: '확인', onPress: () => router.replace('/(tabs)/list') },
-          ]);
-        } else {
-          Alert.alert('등록 완료', `'${trimmed}' 안건이 등록되었습니다.`, [
-            { text: '확인', onPress: () => router.replace('/(tabs)/list') },
-          ]);
-        }
+        await createTopic(payload);
+        moveToListAfterSubmit();
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

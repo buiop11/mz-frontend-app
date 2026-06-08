@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,6 +26,7 @@ export default function ListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const params = useLocalSearchParams<{ refreshAt?: string }>();
   const memberSeq = user?.memberSeq;
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -91,6 +92,19 @@ export default function ListScreen() {
   useEffect(() => {
     loadTopics(selectedCategorySeq);
   }, [loadTopics, selectedCategorySeq]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCategories();
+      loadTopics(selectedCategorySeq);
+    }, [loadCategories, loadTopics, selectedCategorySeq]),
+  );
+
+  useEffect(() => {
+    if (!params.refreshAt) return;
+    loadCategories();
+    loadTopics(selectedCategorySeq);
+  }, [loadCategories, loadTopics, params.refreshAt, selectedCategorySeq]);
 
   const filteredTopics = useMemo(() => {
     const q = query.trim().toLowerCase();

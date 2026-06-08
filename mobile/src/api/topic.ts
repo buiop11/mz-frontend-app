@@ -29,6 +29,28 @@ export type TopicParseResult = {
   hasNextPage?: boolean;
 };
 
+export type PickTopicLogItem = {
+  topicSeq: string;
+  memberSeq?: string;
+  categorySeq?: string;
+  categoryName?: string;
+  candidateSeq?: string;
+  emoji: string;
+  title: string;
+  status: string;
+  picked: boolean;
+  googleEventId?: string;
+  updateDt?: string;
+  candidateName?: string;
+  candidateInfo?: string;
+  candidatePrice?: number;
+  pickDate?: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  fixed?: boolean;
+  proposerMemberSeq?: string;
+};
+
 export type TopicListRequest = {
   memberSeq: number;
   currentPage?: number;
@@ -78,6 +100,16 @@ function optionalString(value: unknown): string | undefined {
     default:
       return undefined;
   }
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  if (value == null || value === '') return undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
 }
 
 export function isPickStatus(status: string) {
@@ -215,7 +247,24 @@ export async function createTopic(data: TopicSaveRequest): Promise<TopicDetail> 
 
   const detail = parseTopicSaveResponse(json);
   if (!detail) {
-    throw new Error('안건 등록 응답을 해석할 수 없습니다.');
+    // 일부 환경에서 SUC001 + 빈 data({})로 응답하는 경우가 있어 등록 성공으로 간주한다.
+    return {
+      topicSeq: '0',
+      memberSeq: String(data.memberSeq),
+      categorySeq: String(data.categorySeq),
+      candidateSeq: undefined,
+      categoryName: undefined,
+      title: data.title,
+      sub: '',
+      tag: defaultTagForStatus(data.status),
+      tagVariant: resolveTagVariant(defaultTagForStatus(data.status), data.status, undefined),
+      emoji: data.emoji,
+      status: data.status,
+      googleEventId: optionalString(data.googleEventId),
+      href: '/list',
+      pickedCandidateSeq: null,
+      fileList: data.fileList ?? [],
+    };
   }
   return detail;
 }
@@ -354,6 +403,62 @@ export function normalizeTopicRow(item: any): TopicSummary {
     googleEventId: optionalString(item.googleEventId),
     href,
   };
+}
+
+function normalizePickTopicLogRow(item: any): PickTopicLogItem | null {
+  if (!item || typeof item !== 'object') return null;
+
+  const topicSeq = optionalString(item.topicSeq ?? item.topicId ?? item.id);
+  const title = String(item.title ?? '').trim();
+  if (!topicSeq || !title) return null;
+
+  return {
+    topicSeq,
+    memberSeq: optionalString(item.memberSeq),
+    categorySeq: optionalString(item.categorySeq),
+    categoryName: optionalString(item.categoryName ?? item.category),
+    candidateSeq: optionalString(item.candidateSeq),
+    emoji: resolveEmoji(item),
+    title,
+    status: String(item.status ?? '').toUpperCase(),
+    picked: Boolean(item.picked) || isPickStatus(String(item.status ?? '').toUpperCase()),
+    googleEventId: optionalString(item.googleEventId),
+    updateDt: optionalString(item.updateDt),
+    candidateName: optionalString(item.name),
+    candidateInfo: optionalString(item.info),
+    candidatePrice: optionalNumber(item.price),
+    pickDate: optionalString(item.pickDate),
+    imageUrl: optionalString(item.imageUrl),
+    linkUrl: optionalString(item.linkUrl),
+    fixed: typeof item.fixed === 'boolean' ? item.fixed : undefined,
+    proposerMemberSeq: optionalString(item.proposerMemberSeq),
+  };
+}
+
+export async function getPickTopicLogs(params: { memberSeq?: number } = {}): Promise<PickTopicLogItem[]> {
+  const q = new URLSearchParams();
+  if (params.memberSeq != null) q.set('memberSeq', String(params.memberSeq));
+  const qs = q.toString();
+  const path = qs ? `/api/topic/pick/list?${qs}` : '/api/topic/pick/list';
+
+  const res = await apiFetch(path, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `Pick 로그 조회 실패 (${res.status})`);
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(json?.message ?? 'Pick 로그 조회에 실패했습니다.');
+  }
+
+  const arr = Array.isArray(json?.data) ? json.data : [];
+  return arr
+    .map((row: any) => normalizePickTopicLogRow(row))
+    .filter((row: PickTopicLogItem | null): row is PickTopicLogItem => row != null)
+    .filter((row: PickTopicLogItem) => row.picked || isPickStatus(row.status));
 }
 
 function rawTopicRowsFromData(data: any): any[] {

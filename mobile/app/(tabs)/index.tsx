@@ -9,9 +9,6 @@ import { useAuth } from '@/src/auth/AuthProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
-// 화면 진입 시 한 번에 보여줄 "진행 중 안건" 카드 최대 개수.
-const MAX_VISIBLE_TOPICS = 4;
-
 // 안건 카드의 상태 뱃지 색상 팔레트 (시안과 동일하게 mint/neutral 두 종류).
 const BADGE_PALETTE: Record<'mint' | 'neutral', { bg: string; fg: string }> = {
   mint: { bg: '#1F3C39', fg: '#D4B483' },
@@ -64,7 +61,7 @@ export default function HomeScreen() {
     loadTopics();
   }, [loadTopics]);
 
-  const visibleTopics = topics.slice(0, MAX_VISIBLE_TOPICS);
+  const visibleTopics = topics;
   const stats = useMemo(() => buildStats(topics, totalCount), [topics, totalCount]);
 
   // 화면 진입 직후 사용자 이름이 비어 있을 수 있어 '우리' 폴백을 둔다.

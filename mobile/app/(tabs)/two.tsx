@@ -1,11 +1,12 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, View } from '@/components/Themed';
-import { agendas, categories, type Agenda } from '@/src/data/mock';
+import { getPickTopicLogs, type PickTopicLogItem } from '@/src/api/topic';
+import { useAuth } from '@/src/auth/AuthProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
@@ -18,11 +19,11 @@ type DecisionLog = {
   title: string;
   pick: string;
   summary: string;
-  isPicked: boolean;
   categoryLabel: string;
   categoryColor: string;
   date: Date;
   dateKey: string;
+  pickMeta: string;
 };
 
 type CalendarCell = {
@@ -44,12 +45,46 @@ const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 export default function HistoryScreen() {
   const t = useTokens();
   const router = useRouter();
+  const { user } = useAuth();
+  const memberSeq = user?.memberSeq;
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<LogViewMode>('timeline');
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [logs, setLogs] = useState<DecisionLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const logs = useMemo(() => buildDecisionLogs(agendas), []);
+  const loadLogs = useCallback(async () => {
+    if (memberSeq == null) {
+      setLogs([]);
+      setLoading(false);
+      setError('로그인이 필요합니다. 다시 로그인해 주세요.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const pickedTopics = await getPickTopicLogs({ memberSeq });
+      const nextLogs = buildDecisionLogs(pickedTopics);
+      setLogs(nextLogs);
+      setSelectedDateKey((prev) =>
+        prev && nextLogs.some((item) => item.dateKey === prev) ? prev : null,
+      );
+    } catch (e: unknown) {
+      console.error('[log] load picked topics failed', e);
+      setLogs([]);
+      setError(e instanceof Error ? e.message : '로그를 불러오지 못했어요.');
+    } finally {
+      setLoading(false);
+    }
+  }, [memberSeq]);
+
+  useEffect(() => {
+    void loadLogs();
+  }, [loadLogs]);
+
   const logsByDate = useMemo(() => {
     const map = new Map<string, DecisionLog[]>();
     for (const item of logs) {
@@ -126,7 +161,42 @@ export default function HistoryScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        {mode === 'timeline' ? (
+        {loading ? (
+          <Card border background="surface" radius={16} padding={18} style={styles.centerCard}>
+            <ActivityIndicator color={t.colors.gold} />
+            <Text style={[styles.loadingText, { color: t.colors.subtext }]}>
+              Pick 로그를 불러오는 중이에요.
+            </Text>
+          </Card>
+        ) : error ? (
+          <Card border background="surface" radius={16} padding={18}>
+            <Text style={[styles.errorTitle, { color: t.colors.text }]}>
+              로그를 불러오지 못했어요
+            </Text>
+            <Text style={[styles.errorBody, { color: t.colors.subtext }]}>{error}</Text>
+            <Pressable
+              onPress={() => {
+                void loadLogs();
+              }}
+              style={({ pressed }) => [
+                styles.retryButton,
+                { borderColor: t.colors.border, opacity: pressed ? 0.75 : 1 },
+              ]}>
+              <Text style={[styles.retryButtonText, { color: t.colors.text }]}>
+                다시 시도
+              </Text>
+            </Pressable>
+          </Card>
+        ) : logs.length === 0 ? (
+          <Card border background="surface" radius={16} padding={20} style={styles.centerCard}>
+            <Text style={[styles.emptyTitle, { color: t.colors.text }]}>
+              Pick 완료된 안건이 없어요
+            </Text>
+            <Text style={[styles.loadingText, { color: t.colors.subtext }]}>
+              완료된 안건만 로그/캘린더에 표시됩니다.
+            </Text>
+          </Card>
+        ) : mode === 'timeline' ? (
           <View style={styles.timelineWrap} lightColor="transparent" darkColor="transparent">
             <Text style={[styles.timelineGuide, { color: t.colors.subtext }]}>
               날짜 · 안건 · Pick 결과 순으로 기록돼요.
@@ -153,11 +223,15 @@ export default function HistoryScreen() {
                       <Text style={[styles.timelineDate, { color: t.colors.tabIconDefault }]}>
                         {formatFullDate(item.date)}
                       </Text>
+                      <Text style={[styles.timelineCategory, { color: item.categoryColor }]} numberOfLines={1}>
+                        {item.categoryLabel}
+                      </Text>
                       <Text style={[styles.timelineTitle, { color: t.colors.text }]} numberOfLines={1}>
                         {item.title}
                       </Text>
                       <Text style={[styles.timelinePick, { color: t.colors.subtext }]} numberOfLines={1}>
-                        {item.isPicked ? `Pick! ${item.pick}` : item.summary}
+                        Pick! {item.pick}
+                        {item.pickMeta ? ` (${item.pickMeta})` : ''}
                       </Text>
                     </View>
                   </View>
@@ -254,60 +328,90 @@ export default function HistoryScreen() {
   );
 }
 
-function buildDecisionLogs(items: Agenda[]): DecisionLog[] {
+function buildDecisionLogs(items: PickTopicLogItem[]): DecisionLog[] {
   const now = new Date();
-  const catMap = new Map(categories.map((cat) => [cat.id, cat.label]));
-
-  const logs = items.map((agenda, idx) => {
-    const date = parseAgendaDate(agenda, now, idx);
-    const chosen = pickCandidateLabel(agenda);
-    const categoryLabel = catMap.get(agenda.categoryId) ?? '기타';
-    const categoryColor = CATEGORY_COLORS[agenda.categoryId] ?? '#6D6A65';
-    const summary = buildTimelineSummary(agenda);
-    const isPicked = agenda.status === 'PICKED' || Boolean(agenda.pickedCandidateId);
+  const logs = items.map((topic, idx) => {
+    const date = parseTopicDate(topic, now, idx);
+    const chosen = pickLabelFromTopic(topic);
+    const categoryLabel = topic.categoryName?.trim() || '기타';
+    const categoryColor = resolveCategoryColor(topic.categoryName);
+    const summary = buildTimelineSummary(topic, chosen);
+    const pickMeta = buildPickMeta(topic);
 
     return {
-      id: `${agenda.id}-${formatDateKey(date)}`,
-      agendaId: agenda.id,
-      title: agenda.title,
+      id: `${topic.topicSeq}-${formatDateKey(date)}`,
+      agendaId: String(topic.topicSeq),
+      title: topic.title,
       pick: chosen,
       summary,
-      isPicked,
       categoryLabel,
       categoryColor,
       date,
       dateKey: formatDateKey(date),
+      pickMeta,
     };
   });
 
   return logs.sort((a, b) => b.date.getTime() - a.date.getTime());
 }
 
-function parseAgendaDate(agenda: Agenda, baseDate: Date, index: number): Date {
-  if (agenda.scheduledAt) {
-    const parsed = new Date(agenda.scheduledAt);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
+function parseTopicDate(topic: PickTopicLogItem, baseDate: Date, index: number): Date {
+  const parsed = parseIsoDate(topic.pickDate);
+  if (parsed) return parsed;
   const fallback = new Date(baseDate);
-  fallback.setDate(baseDate.getDate() - index * 3);
+  fallback.setDate(baseDate.getDate() - index);
   return fallback;
 }
 
-function pickCandidateLabel(agenda: Agenda): string {
-  const picked = agenda.candidates.find((c) => c.id === agenda.pickedCandidateId);
-  if (picked?.title) return picked.title;
-  if (agenda.candidates.length > 0 && agenda.candidates[0]?.title) return agenda.candidates[0].title;
-  return agenda.subtitle || '최종 선택';
+function parseIsoDate(raw?: string): Date | null {
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function buildTimelineSummary(agenda: Agenda): string {
-  if (agenda.status === 'PICKED') {
-    return `후보 ${agenda.candidates.length} 중 Pick 완료`;
+function pickLabelFromTopic(topic: PickTopicLogItem): string {
+  const byName = topic.candidateName?.trim();
+  if (byName) return stripMetaSuffix(byName);
+  return '최종 선택 완료';
+}
+
+function buildTimelineSummary(topic: PickTopicLogItem, pickLabel: string): string {
+  if (topic.candidateInfo?.trim()) return topic.candidateInfo.trim();
+  return pickLabel;
+}
+
+function buildPickMeta(topic: PickTopicLogItem): string {
+  if (typeof topic.candidatePrice === 'number' && Number.isFinite(topic.candidatePrice)) {
+    return `${formatPrice(topic.candidatePrice)}원`;
   }
-  if (agenda.scheduledAt) {
-    return '투표 후 일정 캘린더 반영';
+  if (topic.pickDate) {
+    const d = parseIsoDate(topic.pickDate);
+    if (d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}.${m}.${day}`;
+    }
   }
-  return `Pick! ${pickCandidateLabel(agenda)}`;
+  return '';
+}
+
+function formatPrice(value: number): string {
+  return value.toLocaleString('ko-KR');
+}
+
+function stripMetaSuffix(text: string): string {
+  // 후보명에 가격/날짜가 섞여 내려오는 경우 하단 메타(price/pickDate)와 중복되지 않게 제거한다.
+  return text.replace(/\s*\((?:[\d,]+원|20\d{2}[.\-/]\d{1,2}[.\-/]\d{1,2})\)\s*$/u, '').trim();
+}
+
+function resolveCategoryColor(categoryName?: string): string {
+  const name = (categoryName ?? '').toLowerCase();
+  if (name.includes('웨딩')) return CATEGORY_COLORS.wedding;
+  if (name.includes('식사')) return CATEGORY_COLORS.meal;
+  if (name.includes('구매')) return CATEGORY_COLORS.buy;
+  if (name.includes('데이트')) return CATEGORY_COLORS.date;
+  return '#6D6A65';
 }
 
 function startOfMonth(date: Date) {
@@ -416,6 +520,7 @@ function renderDayCardContent({
               <Text style={[styles.dayLogSub, { color: subColor }]} numberOfLines={1}>
                 <Text style={{ color: accentColor }}>Pick! </Text>
                 {ev.pick}
+                {ev.pickMeta ? ` (${ev.pickMeta})` : ''}
               </Text>
             </View>
             <Feather name="chevron-right" size={16} color={emptyColor} />
@@ -469,6 +574,39 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 28,
   },
+  centerCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 12,
+  },
+  errorTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  errorBody: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  retryButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
   timelineWrap: { gap: 6 },
   timelineGuide: {
     fontSize: 13,
@@ -515,8 +653,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: 14,
   },
+  timelineCategory: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   timelineTitle: {
-    marginTop: 5,
+    marginTop: 4,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,

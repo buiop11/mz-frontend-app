@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text, View } from '@/components/Themed';
 import { getMemberCategories, type Category } from '@/src/api/category';
-import { getMemberTopics, TopicSummary } from '@/src/api/topic';
+import { deleteTopic, getMemberTopics, TopicSummary } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
@@ -36,6 +37,7 @@ export default function ListScreen() {
   const [loadingCats, setLoadingCats] = useState(true);
   const [loadingTopics, setLoadingTopics] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingTopicSeq, setDeletingTopicSeq] = useState<string | null>(null);
 
   const fabBottom = Math.max(insets.bottom, 12) + 72;
 
@@ -118,6 +120,69 @@ export default function ListScreen() {
     router.push({ pathname: '/create', params });
   }, [router, selectedCategorySeq]);
 
+  const confirmDeleteTopic = useCallback(
+    (topic: TopicSummary) => {
+      if (memberSeq == null) {
+        Alert.alert('삭제 실패', '로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+        return;
+      }
+
+      const runDelete = async () => {
+        setDeletingTopicSeq(String(topic.topicSeq));
+        try {
+          await deleteTopic(memberSeq, String(topic.topicSeq));
+          await loadTopics(selectedCategorySeq);
+        } catch (e: unknown) {
+          Alert.alert(
+            '삭제 실패',
+            e instanceof Error ? e.message : '안건을 삭제하지 못했어요.',
+          );
+        } finally {
+          setDeletingTopicSeq(null);
+        }
+      };
+
+      // RN Web에서 Alert 버튼 콜백이 동작하지 않는 경우가 있어 confirm으로 폴백한다.
+      if (Platform.OS === 'web') {
+        const ok = globalThis.confirm?.(`「${topic.title}」 안건을 삭제할까요?`);
+        if (ok) {
+          void runDelete();
+        }
+        return;
+      }
+
+      Alert.alert(
+        '안건 삭제',
+        `「${topic.title}」 안건을 삭제할까요?`,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '삭제',
+            style: 'destructive',
+            onPress: () => {
+              void runDelete();
+            },
+          },
+        ],
+      );
+    },
+    [loadTopics, memberSeq, selectedCategorySeq],
+  );
+
+  const openTopicDetail = useCallback(
+    (topic: TopicSummary) => {
+      router.push({
+        pathname: '/agenda/[id]',
+        params: {
+          id: String(topic.topicSeq),
+          title: topic.title,
+          categoryName: topic.categoryName ?? '',
+        },
+      });
+    },
+    [router],
+  );
+
   const renderListBody = () => {
     if (loadingTopics) {
       return (
@@ -151,53 +216,43 @@ export default function ListScreen() {
       );
     }
 
-    return filteredTopics.map((tp) => (
-      <Pressable
-        key={tp.topicSeq}
-        onPress={() =>
-          router.push({
-            pathname: '/agenda/[id]',
-            params: {
-              id: String(tp.topicSeq),
-              title: tp.title,
-              categoryName: tp.categoryName ?? '',
-            },
-          })
-        }
-        style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}>
-        <Card border background="surface" radius={18} padding={0} style={styles.topicCard}>
-          <RNView style={styles.topicTop}>
-            <RNView style={styles.topicTextCol}>
-              <RNView style={styles.topicTitleRow}>
-                <RNView style={[styles.topicEmojiWrap, { backgroundColor: t.colors.muted }]}>
-                  <Text style={styles.topicEmoji}>{tp.emoji || '🗳️'}</Text>
+    return filteredTopics.map((tp) => {
+      const deleting = deletingTopicSeq === String(tp.topicSeq);
+      return (
+        <Card key={tp.topicSeq} border background="surface" radius={18} padding={0} style={styles.topicCard}>
+          <Pressable onPress={() => openTopicDetail(tp)} style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}>
+            <RNView style={styles.topicTop}>
+              <RNView style={styles.topicTextCol}>
+                <RNView style={styles.topicTitleRow}>
+                  <RNView style={[styles.topicEmojiWrap, { backgroundColor: t.colors.muted }]}>
+                    <Text style={styles.topicEmoji}>{tp.emoji || '🗳️'}</Text>
+                  </RNView>
+                  <Text style={[styles.topicTitle, { color: t.colors.text }]} numberOfLines={1}>
+                    {tp.title}
+                  </Text>
                 </RNView>
-                <Text style={[styles.topicTitle, { color: t.colors.text }]} numberOfLines={1}>
-                  {tp.title}
+                <Text style={[styles.topicSub, { color: t.colors.subtext }]} numberOfLines={1}>
+                  {buildTopicMeta(tp)}
                 </Text>
               </RNView>
-              <Text style={[styles.topicSub, { color: t.colors.subtext }]} numberOfLines={1}>
-                {buildTopicMeta(tp)}
-              </Text>
-            </RNView>
-            <RNView
-              style={[
-                styles.statusBadge,
-                { backgroundColor: tp.tagVariant === 'mint' ? '#1F3C39' : '#D4B483' },
-              ]}>
-              <Text
+              <RNView
                 style={[
-                  styles.statusText,
-                  { color: tp.tagVariant === 'mint' ? '#D4B483' : '#121212' },
+                  styles.statusBadge,
+                  { backgroundColor: tp.tagVariant === 'mint' ? '#1F3C39' : '#D4B483' },
                 ]}>
-                {tp.tagVariant === 'mint' ? tp.tag : 'Pick!'}
-              </Text>
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: tp.tagVariant === 'mint' ? '#D4B483' : '#121212' },
+                  ]}>
+                  {tp.tagVariant === 'mint' ? tp.tag : 'Pick!'}
+                </Text>
+              </RNView>
             </RNView>
-          </RNView>
+          </Pressable>
           <RNView style={[styles.topicActions, { borderTopColor: t.colors.border }]}>
             <Pressable
-              onPress={(e) => {
-                e.stopPropagation?.();
+              onPress={() => {
                 const params: Record<string, string> = { topicSeq: String(tp.topicSeq) };
                 if (tp.categorySeq) params.categorySeq = tp.categorySeq;
                 router.push({ pathname: '/create', params });
@@ -206,19 +261,19 @@ export default function ListScreen() {
               <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 12 }}>수정</Text>
             </Pressable>
             <Pressable
-              onPress={() =>
-                Alert.alert('삭제', '삭제 기능은 API 연결 후 추가할게요.', [
-                  { text: '취소', style: 'cancel' },
-                  { text: '확인', style: 'destructive' },
-                ])
-              }
-              style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.7 : 1 }]}>
-              <Text style={styles.deleteText}>삭제</Text>
+              disabled={deleting}
+              onPress={() => confirmDeleteTopic(tp)}
+              style={({ pressed }) => [styles.deleteBtn, { opacity: pressed || deleting ? 0.7 : 1 }]}>
+              {deleting ? (
+                <ActivityIndicator size="small" color="#DE6C5A" />
+              ) : (
+                <Text style={styles.deleteText}>삭제</Text>
+              )}
             </Pressable>
           </RNView>
         </Card>
-      </Pressable>
-    ));
+      );
+    });
   };
 
   return (

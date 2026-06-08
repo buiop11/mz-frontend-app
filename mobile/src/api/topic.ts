@@ -302,6 +302,44 @@ export async function updateTopic(
   return detail;
 }
 
+export async function deleteTopic(memberSeq: number, topicSeq: string): Promise<void> {
+  const q = new URLSearchParams({ memberSeq: String(memberSeq) });
+  const primaryPath = `/api/topic/${encodeURIComponent(topicSeq)}?${q.toString()}`;
+  let res = await apiFetch(primaryPath, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+  if (res.status === 404 || res.status === 405) {
+    const fallbackQ = new URLSearchParams({
+      topicSeq: String(topicSeq),
+      memberSeq: String(memberSeq),
+    });
+    const fallbackPath = `/api/topic?${fallbackQ.toString()}`;
+    res = await apiFetch(fallbackPath, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+    });
+  }
+
+  const raw = await res.text().catch(() => '');
+  let json: any = null;
+  if (raw.trim()) {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      if (res.ok) return;
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `안건 삭제 실패 (${res.status})`);
+  }
+  if (!raw.trim() || res.status === 204) return;
+  if (json?.code != null && json.code !== 'SUC001') {
+    throw new Error(json?.message ?? '안건 삭제에 실패했습니다.');
+  }
+}
+
 export async function getTopicDetail(
   topicSeq: number,
   memberSeq?: number,

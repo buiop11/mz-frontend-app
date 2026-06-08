@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, View } from '@/components/Themed';
 import { getPickTopicLogs, type PickTopicLogItem } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
+import { useTopicsRefresh } from '@/src/topics/TopicsRefreshProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
@@ -46,6 +47,7 @@ export default function HistoryScreen() {
   const t = useTokens();
   const router = useRouter();
   const { user } = useAuth();
+  const { refreshToken } = useTopicsRefresh();
   const memberSeq = user?.memberSeq;
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<LogViewMode>('timeline');
@@ -81,9 +83,15 @@ export default function HistoryScreen() {
     }
   }, [memberSeq]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadLogs();
+    }, [loadLogs]),
+  );
+
   useEffect(() => {
     void loadLogs();
-  }, [loadLogs]);
+  }, [loadLogs, refreshToken]);
 
   const logsByDate = useMemo(() => {
     const map = new Map<string, DecisionLog[]>();

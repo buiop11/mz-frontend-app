@@ -27,8 +27,14 @@ import {
   pickCandidateBySeq,
 } from '@/src/api/candidate';
 import { Comment, createComment, getCommentList } from '@/src/api/comment';
-import { getTopicDetail, isPickStatus, type TopicDetail } from '@/src/api/topic';
+import {
+  getTopicDetail,
+  isPickStatus,
+  revertTopicPick,
+  type TopicDetail,
+} from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
+import { useTopicsRefresh } from '@/src/topics/TopicsRefreshProvider';
 
 const PICK_COLOR = '#D4B483';
 const PICK_DONE = '#2A5A55';
@@ -39,6 +45,7 @@ export default function AgendaDetailScreen() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const { user } = useAuth();
+  const { bumpTopicsRefresh } = useTopicsRefresh();
   const memberSeq = user?.memberSeq;
 
   const params = useLocalSearchParams<{
@@ -64,6 +71,7 @@ export default function AgendaDetailScreen() {
   const [pickOverlay, setPickOverlay] = useState(false);
   const [pickTargetSeq, setPickTargetSeq] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
+  const [reverting, setReverting] = useState(false);
   const [commentsByCandidate, setCommentsByCandidate] = useState<Record<number, Comment[]>>({});
   const [draftByCandidate, setDraftByCandidate] = useState<Record<number, string>>({});
   const [commentLoadingSeq, setCommentLoadingSeq] = useState<number | null>(null);
@@ -208,32 +216,57 @@ export default function AgendaDetailScreen() {
     setPickOverlay(true);
   };
 
-  const handleUndoDecision = () => {
-    Alert.alert(
-      '결정 되돌리기',
-      `선택된 후보(candidateSeq: ${decidedCandidateSeq ?? '-'}) 결정을 취소할까요? (API 연동 예정)`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '되돌리기',
-          style: 'destructive',
-          onPress: () => {
-            setPickedSeq(null);
-            setCandidates((prev) => prev.map((c) => ({ ...c, fixed: false })));
-            setTopicDetail((prev) =>
-              prev ? { ...prev, status: 'VOTING', tag: '투표 중', pickedCandidateSeq: null } : prev,
-            );
-          },
+  const handleUndoDecision = useCallback(() => {
+    if (memberSeq == null) {
+      Alert.alert('되돌리기 실패', '로그인 정보를 확인할 수 없습니다. 다시 로그인해 주세요.');
+      return;
+    }
+    if (!Number.isFinite(topicSeq) || topicSeq <= 0) return;
+
+    const runRevert = async () => {
+      setReverting(true);
+      try {
+        await revertTopicPick({ memberSeq, topicSeq });
+        bumpTopicsRefresh();
+        await load();
+      } catch (e: unknown) {
+        Alert.alert(
+          '되돌리기 실패',
+          e instanceof Error ? e.message : '결정 되돌리기에 실패했어요.',
+        );
+      } finally {
+        setReverting(false);
+      }
+    };
+
+    const message = '최종 결정을 되돌릴까요? 다시 투표할 수 있어요.';
+
+    if (Platform.OS === 'web') {
+      const ok = globalThis.confirm?.(message);
+      if (ok) {
+        void runRevert();
+      }
+      return;
+    }
+
+    Alert.alert('결정 되돌리기', message, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '되돌리기',
+        style: 'destructive',
+        onPress: () => {
+          void runRevert();
         },
-      ],
-    );
-  };
+      },
+    ]);
+  }, [bumpTopicsRefresh, load, memberSeq, topicSeq]);
 
   const confirmPick = async () => {
     if (memberSeq == null || pickTargetSeq == null) return;
     setPicking(true);
     try {
       await pickCandidateBySeq(pickTargetSeq);
+      bumpTopicsRefresh();
       setPickedSeq(pickTargetSeq);
       setCandidates((prev) =>
         prev.map((c) => ({ ...c, fixed: c.candidateSeq === pickTargetSeq })),
@@ -478,12 +511,17 @@ export default function AgendaDetailScreen() {
           {topicVotingComplete ? (
             <Pressable
               onPress={handleUndoDecision}
+              disabled={reverting}
               style={({ pressed }) => [
                 styles.btnHold,
                 styles.bottomBtnFull,
-                { opacity: pressed ? 0.85 : 1 },
+                { opacity: pressed || reverting ? 0.85 : 1 },
               ]}>
-              <Text style={styles.btnHoldText}>결정 되돌리기</Text>
+              {reverting ? (
+                <ActivityIndicator color="#E8E4DC" size="small" />
+              ) : (
+                <Text style={styles.btnHoldText}>결정 되돌리기</Text>
+              )}
             </Pressable>
           ) : (
             <Pressable

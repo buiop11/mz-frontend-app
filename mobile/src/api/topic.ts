@@ -473,6 +473,34 @@ function normalizePickTopicLogRow(item: any): PickTopicLogItem | null {
   };
 }
 
+export type RevertTopicPickRequest = {
+  memberSeq: number;
+  topicSeq: number;
+};
+
+/** Pick 결정 되돌리기 — /api/topic/{topicSeq}/pick/revert */
+export async function revertTopicPick(params: RevertTopicPickRequest): Promise<void> {
+  const res = await apiFetch(`/api/topic/${params.topicSeq}/pick/revert`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      memberSeq: params.memberSeq,
+      topicSeq: params.topicSeq,
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? `결정 되돌리기 실패 (${res.status})`);
+  }
+  if (json?.code && json.code !== 'SUC001') {
+    throw new Error(json?.message ?? '결정 되돌리기에 실패했습니다.');
+  }
+}
+
 export async function getPickTopicLogs(params: { memberSeq?: number } = {}): Promise<PickTopicLogItem[]> {
   const q = new URLSearchParams();
   if (params.memberSeq != null) q.set('memberSeq', String(params.memberSeq));

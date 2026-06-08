@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import { Text, View } from '@/components/Themed';
 import { getMemberCategories, type Category } from '@/src/api/category';
 import { deleteTopic, getMemberTopics, TopicSummary } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
+import { useTopicsRefresh } from '@/src/topics/TopicsRefreshProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
@@ -27,7 +28,7 @@ export default function ListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ refreshAt?: string }>();
+  const { refreshToken, bumpTopicsRefresh } = useTopicsRefresh();
   const memberSeq = user?.memberSeq;
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -87,26 +88,20 @@ export default function ListScreen() {
     [memberSeq],
   );
 
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
-  useEffect(() => {
-    loadTopics(selectedCategorySeq);
-  }, [loadTopics, selectedCategorySeq]);
+  const reload = useCallback(() => {
+    void loadCategories();
+    void loadTopics(selectedCategorySeq);
+  }, [loadCategories, loadTopics, selectedCategorySeq]);
 
   useFocusEffect(
     useCallback(() => {
-      loadCategories();
-      loadTopics(selectedCategorySeq);
-    }, [loadCategories, loadTopics, selectedCategorySeq]),
+      reload();
+    }, [reload]),
   );
 
   useEffect(() => {
-    if (!params.refreshAt) return;
-    loadCategories();
-    loadTopics(selectedCategorySeq);
-  }, [loadCategories, loadTopics, params.refreshAt, selectedCategorySeq]);
+    reload();
+  }, [reload, refreshToken]);
 
   const filteredTopics = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -131,7 +126,7 @@ export default function ListScreen() {
         setDeletingTopicSeq(String(topic.topicSeq));
         try {
           await deleteTopic(memberSeq, String(topic.topicSeq));
-          await loadTopics(selectedCategorySeq);
+          bumpTopicsRefresh();
         } catch (e: unknown) {
           Alert.alert(
             '삭제 실패',
@@ -166,7 +161,7 @@ export default function ListScreen() {
         ],
       );
     },
-    [loadTopics, memberSeq, selectedCategorySeq],
+    [bumpTopicsRefresh, memberSeq],
   );
 
   const openTopicDetail = useCallback(

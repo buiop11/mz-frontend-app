@@ -28,6 +28,7 @@ import {
   type TopicFileItem,
 } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
+import { useTopicsRefresh } from '@/src/topics/TopicsRefreshProvider';
 import { AppHeader } from '@/src/ui/components/AppHeader';
 import { useTokens } from '@/src/ui/tokens';
 
@@ -65,6 +66,7 @@ export default function CreateScreen() {
   const t = useTokens();
   const router = useRouter();
   const { user } = useAuth();
+  const { bumpTopicsRefresh } = useTopicsRefresh();
   const memberSeq = user?.memberSeq;
 
   const params = useLocalSearchParams<{
@@ -189,11 +191,9 @@ export default function CreateScreen() {
   }, [isEditMode, editTopicSeq]);
 
   const moveToListAfterSubmit = useCallback(() => {
-    router.replace({
-      pathname: '/list',
-      params: { refreshAt: String(Date.now()) },
-    });
-  }, [router]);
+    bumpTopicsRefresh();
+    router.replace({ pathname: '/list' });
+  }, [bumpTopicsRefresh, router]);
 
   async function handleSubmit() {
     const trimmed = title.trim();

@@ -1,11 +1,12 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { getMemberTopics, TopicSummary } from '@/src/api/topic';
 import { useAuth } from '@/src/auth/AuthProvider';
+import { useTopicsRefresh } from '@/src/topics/TopicsRefreshProvider';
 import { Card } from '@/src/ui/components/Card';
 import { useTokens } from '@/src/ui/tokens';
 
@@ -19,6 +20,7 @@ export default function HomeScreen() {
   const t = useTokens();
   const router = useRouter();
   const { user } = useAuth();
+  const { refreshToken } = useTopicsRefresh();
 
   // 백엔드 /api/topic 응답을 화면 상태로 보관한다.
   const [topics, setTopics] = useState<TopicSummary[]>([]);
@@ -57,9 +59,15 @@ export default function HomeScreen() {
     }
   }, [memberSeq]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadTopics();
+    }, [loadTopics]),
+  );
+
   useEffect(() => {
-    loadTopics();
-  }, [loadTopics]);
+    void loadTopics();
+  }, [loadTopics, refreshToken]);
 
   const visibleTopics = topics;
   const stats = useMemo(() => buildStats(topics, totalCount), [topics, totalCount]);

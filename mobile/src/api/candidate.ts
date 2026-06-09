@@ -1,13 +1,15 @@
+import { resolveFilePathToUrl } from './file';
 import { apiFetch, messageFromApiJson } from './fetch';
 
 export type CandidateFileItem = {
-  memberSeq: number;
+  attachingFileSeq?: number;
+  targetSeq?: number;
+  memberSeq?: number;
   fileOriginalName: string;
   fileSize: number;
   filePath: string;
-  fileExtensionName: string;
+  fileExtensionName?: string;
   delYn?: boolean;
-  attachingFileSeq?: number;
 };
 
 export type Candidate = {
@@ -21,6 +23,7 @@ export type Candidate = {
   imageUrl: string | null;
   linkUrl: string | null;
   fixed: boolean;
+  fileList?: CandidateFileItem[];
 };
 
 export type CandidateListRequest = {
@@ -28,6 +31,44 @@ export type CandidateListRequest = {
   topicSeq: number;
   currentPage?: number;
 };
+
+function parseCandidateFileList(raw: unknown): CandidateFileItem[] {
+  if (!Array.isArray(raw)) return [];
+  const list: CandidateFileItem[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    if (r.delYn === true) continue;
+    const filePath = typeof r.filePath === 'string' ? r.filePath.trim() : '';
+    if (!filePath) continue;
+    list.push({
+      attachingFileSeq: typeof r.attachingFileSeq === 'number' ? r.attachingFileSeq : undefined,
+      targetSeq: typeof r.targetSeq === 'number' ? r.targetSeq : undefined,
+      memberSeq: typeof r.memberSeq === 'number' ? r.memberSeq : undefined,
+      fileOriginalName: String(r.fileOriginalName ?? ''),
+      fileSize: typeof r.fileSize === 'number' ? r.fileSize : Number(r.fileSize) || 0,
+      filePath,
+      fileExtensionName: typeof r.fileExtensionName === 'string' ? r.fileExtensionName : undefined,
+      delYn: Boolean(r.delYn),
+    });
+  }
+  return list;
+}
+
+function resolveCandidateImageUrl(
+  imageUrl: string | null,
+  fileList: CandidateFileItem[],
+): string | null {
+  const firstFile = fileList[0];
+  if (firstFile?.filePath) {
+    return resolveFilePathToUrl(firstFile.filePath);
+  }
+  if (imageUrl?.trim()) {
+    const url = imageUrl.trim();
+    return /^https?:\/\//i.test(url) ? url : resolveFilePathToUrl(url);
+  }
+  return null;
+}
 
 function normalizeCandidate(row: any): Candidate | null {
   const candidateSeq =
@@ -55,6 +96,10 @@ function normalizeCandidate(row: any): Candidate | null {
         ? pickDateRaw.toISOString()
         : null;
 
+  const fileList = parseCandidateFileList(row?.fileList);
+  const rawImageUrl =
+    typeof row?.imageUrl === 'string' && row.imageUrl.trim() ? row.imageUrl.trim() : null;
+
   return {
     candidateSeq,
     topicSeq,
@@ -68,10 +113,10 @@ function normalizeCandidate(row: any): Candidate | null {
     info: typeof row?.info === 'string' ? row.info.trim() || null : null,
     price: price != null && Number.isFinite(price) ? price : null,
     pickDate,
-    imageUrl:
-      typeof row?.imageUrl === 'string' && row.imageUrl.trim() ? row.imageUrl.trim() : null,
+    imageUrl: resolveCandidateImageUrl(rawImageUrl, fileList),
     linkUrl: typeof row?.linkUrl === 'string' && row.linkUrl.trim() ? row.linkUrl.trim() : null,
     fixed: Boolean(row?.fixed),
+    fileList,
   };
 }
 

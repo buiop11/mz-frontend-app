@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { API_BASE_URL } from './client';
 import { apiFetch } from './fetch';
 
 export type FileUploadResult = {
@@ -105,6 +106,16 @@ export async function uploadFile(params: {
     throw new Error('업로드 응답에서 filePath를 찾을 수 없습니다.');
   }
   return parsed;
+}
+
+/** 서버 filePath(/tmp/...) 또는 상대 경로를 이미지 로드용 절대 URL로 변환 */
+export function resolveFilePathToUrl(filePath: string): string {
+  const trimmed = filePath.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const base = API_BASE_URL.replace(/\/$/, '');
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${base}${path}`;
 }
 
 export function isLocalImageUri(uri: string): boolean {

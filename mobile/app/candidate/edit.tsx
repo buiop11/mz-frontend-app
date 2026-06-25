@@ -20,10 +20,11 @@ import {
   createCandidate,
   getCandidateDetail,
   parsePickDateToForm,
+  scrapeCandidateImage,
   updateCandidate,
   type CandidateFileItem,
 } from '@/src/api/candidate';
-import { isLocalImageUri, uploadFile } from '@/src/api/file';
+import { isLocalImageUri, resolveFilePathToUrl, uploadFile } from '@/src/api/file';
 import { useAuth } from '@/src/auth/AuthProvider';
 import { AppHeader } from '@/src/ui/components/AppHeader';
 import { useTokens } from '@/src/ui/tokens';
@@ -50,6 +51,7 @@ export default function CandidateEditScreen() {
 
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
+  const [scrapingImage, setScrapingImage] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const [name, setName] = useState('');
@@ -65,6 +67,7 @@ export default function CandidateEditScreen() {
   /** 사진첩에서 고른 로컬 파일 — 저장 시 /api/file/upload 후 filePath를 imageUrl로 사용 */
   const [pickedFileUri, setPickedFileUri] = useState<string>('');
   const [pickedWebFile, setPickedWebFile] = useState<File | null>(null);
+  const [scrapedFileItem, setScrapedFileItem] = useState<CandidateFileItem | null>(null);
   const webFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadDetail = useCallback(async () => {
@@ -101,6 +104,7 @@ export default function CandidateEditScreen() {
       setPreviewUri(existingImg);
       setPickedFileUri('');
       setPickedWebFile(null);
+      setScrapedFileItem(null);
       setImgTab(existingImg && !existingImg.startsWith('http') ? 'gallery' : existingImg ? 'url' : 'gallery');
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : '후보 정보를 불러오지 못했어요.');
@@ -116,6 +120,7 @@ export default function CandidateEditScreen() {
   const applyPickedAsset = useCallback((uri: string, webFile?: File | null) => {
     setPickedFileUri(uri);
     setPickedWebFile(webFile ?? null);
+    setScrapedFileItem(null);
     setPreviewUri(uri);
     setImageUrl('');
     setImgTab('gallery');
@@ -166,13 +171,59 @@ export default function CandidateEditScreen() {
     setPreviewUri('');
     setPickedFileUri('');
     setPickedWebFile(null);
+    setScrapedFileItem(null);
     setImageUrl('');
   }, []);
+
+  const fetchImageFromUrl = useCallback(async () => {
+    const url = imageUrl.trim();
+    if (!url) {
+      setMessage('상품 페이지 URL을 입력해 주세요.');
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      setMessage('URL은 http:// 또는 https://로 시작해야 해요.');
+      return;
+    }
+    if (memberSeq == null) {
+      setMessage('로그인 정보가 없어 이미지를 불러올 수 없습니다.');
+      return;
+    }
+
+    setScrapingImage(true);
+    setMessage(null);
+    try {
+      const scraped = await scrapeCandidateImage(url);
+      const savedFile: CandidateFileItem = {
+        memberSeq,
+        fileOriginalName: scraped.fileOriginalName,
+        fileSize: scraped.fileSize,
+        filePath: scraped.filePath,
+        fileExtensionName: scraped.fileExtensionName,
+        delYn: false,
+      };
+      setScrapedFileItem(savedFile);
+      setPickedFileUri('');
+      setPickedWebFile(null);
+      setPreviewUri(resolveFilePathToUrl(scraped.filePath));
+    } catch (e: unknown) {
+      setScrapedFileItem(null);
+      setMessage(e instanceof Error ? e.message : '대표 이미지 불러오기에 실패했어요.');
+    } finally {
+      setScrapingImage(false);
+    }
+  }, [imageUrl, memberSeq]);
 
   async function resolveImageForSave(): Promise<{
     imageUrl: string | null;
     fileList: CandidateFileItem[];
   }> {
+    if (scrapedFileItem) {
+      return {
+        imageUrl: scrapedFileItem.filePath,
+        fileList: [scrapedFileItem],
+      };
+    }
     if ((pickedFileUri.trim() || pickedWebFile) && memberSeq != null) {
       const uploaded = await uploadFile({
         uri: pickedFileUri.trim() || pickedWebFile?.name || 'image.jpg',
@@ -369,11 +420,17 @@ export default function CandidateEditScreen() {
                 </RNView>
               ) : (
                 <RNView style={styles.imgTabPanel}>
-                  <Text style={styles.fieldLabelSmall}>이미지 URL</Text>
+                  <Text style={styles.fieldLabelSmall}>상품 페이지 URL</Text>
                   <RNView style={styles.urlFetchRow}>
                     <TextInput
                       value={imageUrl}
-                      onChangeText={setImageUrl}
+                      onChangeText={(text) => {
+                        if (scrapedFileItem) {
+                          setPreviewUri('');
+                        }
+                        setImageUrl(text);
+                        setScrapedFileItem(null);
+                      }}
                       style={[styles.urlInput, { color: '#F2F2F2' }]}
                       placeholder="https://..."
                       placeholderTextColor="#A09890"
@@ -381,17 +438,16 @@ export default function CandidateEditScreen() {
                       autoCorrect={false}
                     />
                     <Pressable
-                      onPress={() => {
-                        const url = imageUrl.trim();
-                        setPickedFileUri('');
-                        setPickedWebFile(null);
-                        setPreviewUri(url);
-                      }}
-                      style={({ pressed }) => [styles.fetchBtn, { opacity: pressed ? 0.9 : 1 }]}>
-                      <Text style={styles.fetchBtnText}>불러오기</Text>
+                      disabled={scrapingImage || submitting}
+                      onPress={fetchImageFromUrl}
+                      style={({ pressed }) => [
+                        styles.fetchBtn,
+                        { opacity: scrapingImage || submitting ? 0.5 : pressed ? 0.9 : 1 },
+                      ]}>
+                      <Text style={styles.fetchBtnText}>{scrapingImage ? '불러오는 중' : '불러오기'}</Text>
                     </Pressable>
                   </RNView>
-                  <Text style={styles.fieldHint}>이미지 주소를 붙여넣고 불러오기를 눌러요</Text>
+                  <Text style={styles.fieldHint}>상품 링크를 넣으면 og:image를 추출해 대표 이미지로 저장해요</Text>
                 </RNView>
               )}
             </View>
@@ -499,10 +555,10 @@ export default function CandidateEditScreen() {
           <View style={styles.bottomArea} pointerEvents="box-none">
             <Pressable
               onPress={handleSave}
-              disabled={submitting}
+              disabled={submitting || scrapingImage}
               style={({ pressed }) => [
                 styles.submitBtn,
-                { opacity: submitting ? 0.55 : pressed ? 0.92 : 1 },
+                { opacity: submitting || scrapingImage ? 0.55 : pressed ? 0.92 : 1 },
               ]}>
               {submitting ? (
                 <ActivityIndicator color="#121212" />

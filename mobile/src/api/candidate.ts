@@ -1,4 +1,4 @@
-import { resolveFilePathToUrl } from './file';
+import { resolveFilePathToUrl, type FileUploadResult } from './file';
 import { apiFetch, messageFromApiJson } from './fetch';
 
 export type CandidateFileItem = {
@@ -25,6 +25,51 @@ export type Candidate = {
   fixed: boolean;
   fileList?: CandidateFileItem[];
 };
+
+function parseFileUploadLikeResponse(json: unknown): FileUploadResult | null {
+  const root = json as { code?: string; data?: unknown };
+  if (root?.code !== 'SUC001' || root.data == null || typeof root.data !== 'object') {
+    return null;
+  }
+  const d = root.data as Record<string, unknown>;
+  const filePath = typeof d.filePath === 'string' ? d.filePath.trim() : '';
+  if (!filePath) return null;
+  return {
+    fileOriginalName:
+      typeof d.fileOriginalName === 'string' ? d.fileOriginalName : String(d.fileOriginalName ?? ''),
+    fileSize: typeof d.fileSize === 'number' ? d.fileSize : Number(d.fileSize) || 0,
+    filePath,
+    fileExtensionName:
+      typeof d.fileExtensionName === 'string' ? d.fileExtensionName : String(d.fileExtensionName ?? ''),
+  };
+}
+
+export async function scrapeCandidateImage(url: string): Promise<FileUploadResult> {
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) {
+    throw new Error('이미지 추출에 사용할 URL을 입력해 주세요.');
+  }
+
+  const res = await apiFetch('/api/candidate/scrape-image', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: trimmedUrl }),
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(messageFromApiJson(json, `대표 이미지 추출 실패 (${res.status})`));
+  }
+  if (json?.code !== 'SUC001') {
+    throw new Error(messageFromApiJson(json, '대표 이미지 추출에 실패했습니다.'));
+  }
+
+  const parsed = parseFileUploadLikeResponse(json);
+  if (!parsed) {
+    throw new Error('대표 이미지 추출 응답에서 filePath를 찾을 수 없습니다.');
+  }
+  return parsed;
+}
 
 export type CandidateListRequest = {
   memberSeq: number;

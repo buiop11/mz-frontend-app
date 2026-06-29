@@ -155,6 +155,17 @@ export default function AgendaDetailScreen() {
     });
   }, [router, topicSeq]);
 
+  const openTableView = useCallback(() => {
+    router.push({
+      pathname: '/agenda/table',
+      params: {
+        id: String(topicSeq),
+        title: topicTitle,
+        categoryName,
+      },
+    });
+  }, [router, topicSeq, topicTitle, categoryName]);
+
   const current = candidates[index] ?? null;
   const currentCandidateSeq = current?.candidateSeq ?? null;
   const total = candidates.length;
@@ -365,9 +376,17 @@ export default function AgendaDetailScreen() {
       />
 
       <RNView style={styles.navRow}>
-        <Text style={styles.navCount}>
-          등록된 후보 <Text style={styles.navCountStrong}>{loading ? '…' : total}</Text>건
-        </Text>
+        <Pressable
+          onPress={openTableView}
+          disabled={total === 0}
+          style={({ pressed }) => [
+            styles.tableBtn,
+            total === 0 && styles.navBtnDisabled,
+            { opacity: pressed ? 0.85 : 1 },
+          ]}>
+          <Feather name="grid" size={13} color="#D4B483" />
+          <Text style={styles.tableBtnText}>표로 보기</Text>
+        </Pressable>
         <RNView style={styles.navBtns}>
           <Pressable
             onPress={() => goTo(index - 1)}
@@ -822,6 +841,18 @@ const styles = StyleSheet.create({
     backgroundColor: PICK_COLOR,
   },
   addBtnText: { fontSize: 12, fontWeight: '700', color: '#121212' },
+  tableBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#3E3A31',
+    backgroundColor: '#252525',
+  },
+  tableBtnText: { fontSize: 12, fontWeight: '700', color: '#D4B483' },
   voteBar: {
     marginHorizontal: 14,
     marginTop: 10,

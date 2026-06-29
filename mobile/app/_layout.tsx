@@ -79,6 +79,7 @@ function RootLayoutNav() {
             <Stack.Screen name="category/edit" options={{ headerShown: false, title: '카테고리 수정' }} />
             <Stack.Screen name="candidate/edit" options={{ headerShown: false, title: '후보 등록/수정' }} />
             <Stack.Screen name="agenda/[id]" options={{ headerShown: false, title: '안건 상세' }} />
+            <Stack.Screen name="agenda/table" options={{ headerShown: false, title: '후보 한눈에 보기' }} />
             <Stack.Screen name="calendar/[id]" options={{ headerShown: false, title: '일정 상세' }} />
           </Stack>
           </AuthGate>
